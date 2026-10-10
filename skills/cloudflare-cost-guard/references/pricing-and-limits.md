@@ -1,6 +1,6 @@
 # Pricing and limits snapshot
 
-> **Time-sensitive.** Figures below were copied from Cloudflare's documentation on **2026-10-10** and will change. Before quoting a number in a report, confirm it at the linked source if you have network access, and always state the date of the figure you used. If you cannot confirm it, say "per Cloudflare docs as of 2026-10-10" or describe the mechanism without a number. Never compute a dollar estimate that the user could mistake for a quote.
+> **Time-sensitive.** Figures below were copied from Cloudflare's documentation on **2026-10-10** and will change. Before quoting a number in a report, confirm it at the linked source if you have network access, and always state the date of the figure you used. If you cannot confirm it, say "per Cloudflare docs as of 2026-10-10" or describe the mechanism without a number. Dollar figures appear only as a "cost at a stated rate" (an operation count at a stated volume times a documented rate, with its date), never as a total bill or anything the user could mistake for a quote.
 
 All prices in USD. "Paid" means the Workers Paid plan, which has a $5/month account minimum. That minimum is **not** a spending cap: usage beyond the included amounts is billed.
 
