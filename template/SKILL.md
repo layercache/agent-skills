@@ -1,7 +1,7 @@
 ---
 name: template
 description: Replace with what this skill does and when an agent should use it, including the keywords a user is likely to mention. Max 1024 characters.
-license: Apache-2.0
+license: MIT-0
 metadata:
   author: layercache
   version: "0.1.0"
