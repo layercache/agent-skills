@@ -4,7 +4,7 @@ description: Read-only audit of a Cloudflare codebase for runaway usage and surp
 license: MIT
 metadata:
   author: layercache
-  version: "1.2.0"
+  version: "1.3.0"
 ---
 
 # Cloudflare Cost Guard
@@ -127,17 +127,22 @@ Calibration rules:
 - **Credential-gated** paths are rated by the worst case if the credential leaks: Medium when one static secret unlocks a large fan-out or bulk operation with no per-call cap, Low when each call is capped or the damage is small.
 - **One root cause, one finding.** When several problems belong to one loop or path (the loop, its error path, who can start it, what it writes), report one finding and list the contributing problems in its scenario. Separate findings are for paths that could be fixed independently.
 - **Confidence** is about whether the path exists as described. If the path is fully traced but its size depends on data you cannot see (table sizes, indexes, traffic), keep confidence High and say what the size depends on.
+- **Config-gated paths are rated as deployed.** When a path only exists behind a feature flag, environment variable or secret, rate it at the setting the repository config shows (for example a flag that is off in `wrangler.jsonc` usually makes the finding Low; keep it as a finding so the gated risk stays visible). Fill the finding's "Gated by" row with the setting, its value in the repository, and the severity if it flips, and say in the scenario what changes when it does. If the setting cannot be seen (a secret, a dashboard variable), rate as if it is on and set confidence to Medium. Overall risk uses the as-deployed severity.
 - Never rate a finding Critical with Low confidence. Rate it High at most and list the gap under "Unverified risks".
 - A platform limit that caps one invocation (subrequests, the 16-call Worker loop limit, D1 queries per invocation, CPU time) bounds that invocation, not the number of invocations. It lowers severity only when nothing re-triggers the path.
 - Present hypothetical concerns as risks, not confirmed vulnerabilities.
 
 ### Report
 
-Fill in [assets/report-template.md](assets/report-template.md). Start with its "At a glance" block (at most five lines: overall risk, the top actions, and the cost of the worst finding at a stated rate) so the answer is readable before the detail. Drop sections that would be empty, except "At a glance", "Findings" (write "None" when there are none), "Before you change anything" and the machine-readable summary.
+Fill in [assets/report-template.md](assets/report-template.md). Start with its "At a glance" block (overall risk, autonomous paths, the cost of the worst finding at a stated rate, and a table of the top three actions) so the answer is readable before the detail.
+
+**Actions.** "Prioritized remediation" is one table of every action, most urgent first; its first three rows are the "At a glance" table, so the two never disagree. Each row names the action, the findings it fixes (or "Global" for a global safeguard), where it belongs, and **When**: "Now" (an active or autonomous risk in deployed code), "Before launch" (needed before real traffic or users), "Before enabling X" (a gated path that becomes risky only when a setting flips), or "Later" (tidy-up and defense in depth). Severity says how bad a path is; When says how soon to act, and the two can differ (a path that would be High but sits behind a flag that is off is rated Low as deployed, with its action under "Before enabling X").
+
+**Changes since the last run.** Only when the user provides a previous report (its JSON summary is enough), add the "Changes since" line to "At a glance" and the `changes_since` object to the JSON: new findings, fixed findings, re-rated findings (old → new severity, with the reason), and how many are unchanged. Match findings by file and title, not by CG number, since numbers shift between runs. If no previous report is given, leave both out; do not search for one. Drop sections that would be empty, except "At a glance", "Findings" (write "None" when there are none), "Before you change anything" and the machine-readable summary.
 
 Show the report in the conversation. If the full report is long (more than about 150 lines) and you can write files, you may instead save it to a file **outside** the audited repository (for example in the system temporary directory) and say where; the conversation must still show "At a glance", a one-line list of findings, "Before you change anything" and the machine-readable summary. Never write into the audited repository unless the user names that location.
 
-Every finding needs: severity, confidence, service(s), location(s) (file:line), trigger and exposure (autonomous, externally drivable, credential-gated, or n/a for a missing global safeguard), scenario, existing safeguards, cost at a stated rate, and a recommendation. Recommendations name the missing safeguard and where it belongs (for example "cap retries at a fixed count and send exhausted messages to a dead letter queue in `src/consumer.ts:42`"). Do not write replacement code.
+Every finding needs: severity, confidence, service(s), location(s) (file:line), trigger and exposure (autonomous, externally drivable, credential-gated, or n/a for a missing global safeguard), what it is gated by (or "none"), scenario, existing safeguards, cost at a stated rate, and a recommendation. Recommendations name the missing safeguard and where it belongs (for example "cap retries at a fixed count and send exhausted messages to a dead letter queue in `src/consumer.ts:42`"). Do not write replacement code.
 
 If no material problems are found, say so and list what was reviewed, without claiming the application is safe.
 

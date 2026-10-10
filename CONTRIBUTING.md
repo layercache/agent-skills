@@ -50,7 +50,7 @@ Test cases for a skill go in `evals/<skill-name>/`, never inside the skill folde
 ## Before opening a pull request
 
 1. Install the reference validator with `pip install skills-ref`, then run `scripts/validate.sh` and fix any errors.
-2. Run `python3 scripts/check_skills.py` to check links stay inside each skill folder.
+2. Run `python3 scripts/check_skills.py` to check links stay inside each skill folder and that the skill contains nothing deployable (no Wrangler config, `package.json` or JavaScript/TypeScript files; keep example code in fenced Markdown snippets).
 3. If the skill has evals, run its checks (for example `python3 evals/cloudflare-cost-guard/evaltool.py check`) and, for changes to the skill's instructions, the agent eval described in its README.
 4. Add the skill to the table in the root `README.md`, with its `npx skills add layercache/agent-skills --skill <skill-name>` command.
 5. Try the skill in an agent and confirm it triggers on the requests you expect.

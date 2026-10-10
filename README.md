@@ -6,28 +6,32 @@ Free, open-source [Agent Skills](https://agentskills.io) for coding agents, main
 
 | Skill | What it does | Install |
 | ----- | ------------ | ------- |
-| [Cloudflare Cost Guard](skills/cloudflare-cost-guard/) | Read-only audit of a Cloudflare codebase for runaway usage and surprise billing: self-rescheduling alarms, queue loops, recursive Workers, unbounded retries and more. | `npx skills add layercache/agent-skills --skill cloudflare-cost-guard` |
+| [Cloudflare Cost Guard](skills/cloudflare-cost-guard/) | Read-only audit of a Cloudflare codebase for runaway usage and surprise billing: self-rescheduling alarms, queue loops, recursive Workers, unbounded retries and more. | `npx skills add layercache/agent-skills#v1.3.0 --skill cloudflare-cost-guard` |
 
 ## Install
 
 Skills install with the [`skills` CLI](https://github.com/vercel-labs/skills) (the one behind [skills.sh](https://skills.sh)). It needs Node.js and installs the skill for the agents you choose.
 
+Install from a tagged release, so you get a reviewed version of `main` rather than whatever was pushed last. The examples use `v1.3.0`; check [Releases](https://github.com/layercache/agent-skills/releases) for the latest tag. The CLI shows what it is about to install and asks before writing anything, so read the prompt rather than skipping it.
+
 ```bash
 # See what's available
-npx skills add layercache/agent-skills --list
+npx skills add layercache/agent-skills#v1.3.0 --list
 
 # Install one skill into the current project
-npx skills add layercache/agent-skills --skill cloudflare-cost-guard
+npx skills add layercache/agent-skills#v1.3.0 --skill cloudflare-cost-guard
 
 # Install for your user account instead, so every project can use it
-npx skills add layercache/agent-skills --skill cloudflare-cost-guard -g -a claude-code
+npx skills add layercache/agent-skills#v1.3.0 --skill cloudflare-cost-guard -g -a claude-code
 
 # Install for specific agents only
-npx skills add layercache/agent-skills --skill cloudflare-cost-guard -a claude-code -a codex
+npx skills add layercache/agent-skills#v1.3.0 --skill cloudflare-cost-guard -a claude-code -a codex
 
 # Install every skill in this repository
-npx skills add layercache/agent-skills --skill '*'
+npx skills add layercache/agent-skills#v1.3.0 --skill '*'
 ```
+
+**What gets installed:** only the skill folder (`skills/<name>/`): Markdown instructions, reference notes and a report template. It contains no Wrangler config, `package.json` or runnable Worker code; example code appears only as fenced snippets in Markdown. The test projects under `evals/` are never installed.
 
 **Project vs. global:** a project install puts the skill in the project's agent folder (for example `.claude/skills/`), so it can be committed and shared with your team. A global install (`-g`) puts it in your home directory for all your projects. Not every agent supports global installs: without `-a`, the CLI reports those agents as failed and still installs for the rest, so name your agents with `-a` to avoid a confusing result.
 
@@ -51,7 +55,7 @@ On Workers Paid, the monthly subscription is a minimum, not a spending limit. A 
 
 **How it works:** the agent inventories your Wrangler configs and handlers, searches for known runaway patterns, traces each one from its entrypoint to the billable operations, checks whether real safeguards bound it, and explains how each affected service is billed.
 
-**What you get:** a report that opens with a short "At a glance" block (overall risk, top actions, and the worst finding priced at a documented rate), then a service inventory, findings with severity, confidence, file and line references and a cost at a stated rate, a list of Cloudflare dashboard settings to check by hand, prioritized recommendations, evidence gaps, and a JSON summary.
+**What you get:** a Markdown report that opens with a short "At a glance" block (overall risk, the worst finding priced at a documented rate, and a table of the top actions with what each fixes, where, and when to do it), then a service inventory, findings with severity, confidence, file and line references, what setting gates them, and a cost at a stated rate, a list of Cloudflare dashboard settings to check by hand, a prioritized action table, evidence gaps, and a JSON summary. Give it the JSON summary from a previous run and it also tells you what is new, fixed or re-rated since then.
 
 **Example finding**
 

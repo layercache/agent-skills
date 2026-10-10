@@ -7,12 +7,16 @@
 
 ## At a glance
 
-<!-- At most five lines. -->
+<!-- Up to four lines, then the top-actions table (at most 3 rows, the first rows of "Prioritized remediation"). -->
 
-- **Overall risk:** <Critical | High | Medium | Low | None> · <n> Critical · <n> High · <n> Medium · <n> Low <!-- the highest finding severity; "None" when there are no findings -->
+- **Overall risk:** <Critical | High | Medium | Low | None> · <n> Critical · <n> High · <n> Medium · <n> Low <!-- the highest as-deployed finding severity; "None" when there are no findings -->
 - **Autonomous runaway paths:** <Yes (n) | No> <!-- autonomous findings rated High or Critical -->
-- **Top actions:** 1. <action> 2. <action> 3. <action>
 - **Worst finding at a stated rate:** <CG-n: operations per stated volume × documented rate, e.g. "per 1M junk requests: ~2M D1 rows written ≈ $2 at $1.00/M (snapshot 2026-10-10)"; or "no findings">
+- **Changes since <previous commit>:** <n new (CG-n …) · n fixed (title …) · n re-rated (CG-n: old → new, reason) · n unchanged> <!-- only when the user provided a previous report; otherwise omit this line -->
+
+| # | Action | Fixes | Where | When |
+| - | ------ | ----- | ----- | ---- |
+| 1 | <action, one line> | <CG-n or Global> | <file:line or config key> | <Now / Before launch / Before enabling X / Later> |
 
 ## Executive summary
 
@@ -43,6 +47,7 @@
 | Exposure | <autonomous / externally drivable / credential-gated (which credential) / n/a (missing global safeguard)> |
 | Call path | <entrypoint → function → billable operation> |
 | Scenario | <how usage runs away, what it grows with, whether it continues without users> |
+| Gated by | <flag, variable or secret the path depends on, its value in the repository config ("off in wrangler.jsonc", "not visible: secret"), and the severity if flipped; "none" when the path is always live> |
 | Existing safeguards | <verified in code with file:line, or "none found"> |
 | Cost at a stated rate | <operations per stated volume (per 1M outside requests, per day, per run) × documented rate, with source and date; "not documented" with the reason when there is no rate. Never a total bill.> |
 | Protection status | <verified in code / platform-enforced / account setting to verify / unknown> |
@@ -72,8 +77,11 @@
 
 ## Prioritized remediation
 
-1. <highest-impact change, linked to finding IDs>
-2. <next>
+<!-- Every action, most urgent first. The first three rows are the "At a glance" table. -->
+
+| # | Action | Fixes | Where | When |
+| - | ------ | ----- | ----- | ---- |
+| 1 | <action, one line> | <CG-n or Global> | <file:line or config key> | <Now / Before launch / Before enabling X / Later> |
 
 ## Unverified risks and evidence gaps
 
@@ -95,7 +103,7 @@ Any fix for these findings changes exactly the code paths that can generate cost
 
 ## Machine-readable summary
 
-<!-- "file"/"line" is the main location; "locations" lists every location on the path. "autonomous" is true when the path keeps running with no further outside input. "exposure" is "n/a" only for a missing global safeguard filed on its own. "autonomous_runaway_paths" is true only if some finding is autonomous and rated High or Critical. Service names: Workers, Pages Functions, Durable Objects, D1, KV, R2, Queues, Workflows, Cron Triggers, Workers AI, AI Gateway, Browser Run, Containers, Hyperdrive, Vectorize, Email Service, Workers Logs, or "Third-party: <provider>". Safeguards such as the Rate Limiting binding are not services. -->
+<!-- "file"/"line" is the main location; "locations" lists every location on the path. "autonomous" is true when the path keeps running with no further outside input. "exposure" is "n/a" only for a missing global safeguard filed on its own. "autonomous_runaway_paths" is true only if some finding is autonomous and rated High or Critical. "severity" is as deployed (the setting the repository config shows); "gated_by" names the flag, variable or secret the path depends on (null when always live) and "severity_if_enabled" is the severity when that setting flips (null when not gated). "actions" mirrors the "Prioritized remediation" table: "fixes" is a list of finding IDs or "Global"; "when" is one of "Now", "Before launch", "Before enabling <X>", "Later". "changes_since" is present only when the user provided a previous report: "new" and "fixed" list finding titles, "rerated" lists {"title", "from", "to", "reason"}. Service names: Workers, Pages Functions, Durable Objects, D1, KV, R2, Queues, Workflows, Cron Triggers, Workers AI, AI Gateway, Browser Run, Containers, Hyperdrive, Vectorize, Email Service, Workers Logs, or "Third-party: <provider>". Safeguards such as the Rate Limiting binding are not services. -->
 
 ```json
 {
@@ -115,8 +123,25 @@ Any fix for these findings changes exactly the code paths that can generate cost
       "locations": [{ "file": "<path>", "line": 0 }],
       "exposure": "<autonomous|external|credential|n/a>",
       "autonomous": false,
+      "gated_by": null,
+      "severity_if_enabled": null,
       "title": "<short title>"
     }
-  ]
+  ],
+  "actions": [
+    {
+      "id": 1,
+      "action": "<one line>",
+      "fixes": ["CG-1"],
+      "where": "<file:line or config key>",
+      "when": "<Now|Before launch|Before enabling X|Later>"
+    }
+  ],
+  "changes_since": {
+    "previous_commit": "<short SHA from the previous report>",
+    "new": ["<title>"],
+    "fixed": ["<title>"],
+    "rerated": [{ "title": "<title>", "from": "<severity>", "to": "<severity>", "reason": "<one line>" }]
+  }
 }
 ```

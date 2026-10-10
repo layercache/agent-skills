@@ -7,6 +7,8 @@ For every skill under skills/ (the template is skipped: its paths are examples):
   the skill still works after it is installed on its own;
 - no link points outside the skill folder;
 - no symlinks, which installers may not copy;
+- nothing deployable: no Wrangler config, package.json or JavaScript/TypeScript
+  files (example code belongs in fenced Markdown snippets);
 - SKILL.md stays under 500 lines, as CONTRIBUTING.md asks.
 
 Uses only the Python standard library.
@@ -17,6 +19,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 MAX_SKILL_LINES = 500
+DEPLOYABLE_NAMES = {"wrangler.toml", "wrangler.json", "wrangler.jsonc", "package.json"}
+DEPLOYABLE_SUFFIXES = {".js", ".mjs", ".cjs", ".ts", ".mts", ".cts", ".jsx", ".tsx"}
 
 LINK = re.compile(r"\[[^\]]*\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)")
 BACKTICK_PATH = re.compile(r"`((?:scripts|references|assets)/[^`\s]+)`")
@@ -47,6 +51,9 @@ def check_skill(skill: Path) -> list[str]:
         rel = path.relative_to(ROOT)
         if path.is_symlink():
             errors.append(f"{rel}: symlinks are not allowed in a skill")
+            continue
+        if path.is_file() and (path.name in DEPLOYABLE_NAMES or path.suffix in DEPLOYABLE_SUFFIXES):
+            errors.append(f"{rel}: deployable file in a skill; put example code in a fenced Markdown snippet")
             continue
         if path.suffix != ".md" or not path.is_file():
             continue
