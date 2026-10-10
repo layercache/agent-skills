@@ -17,7 +17,8 @@ A public collection of [Agent Skills](https://agentskills.io) maintained by [Lay
 ├── scripts/
 │   └── validate.sh         # Validates every skill against the spec
 ├── CONTRIBUTING.md
-└── LICENSE
+├── LICENSE
+└── NOTICE
 ```
 
 ## Skills
@@ -52,4 +53,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for naming rules and writing guidance.
 
 ## License
 
-[MIT](LICENSE), unless a skill's own folder says otherwise.
+[Apache-2.0](LICENSE), unless a skill's own folder says otherwise. Redistributions must keep the [NOTICE](NOTICE) file. The license grants no rights to the Layer Cache name or trademarks.

@@ -26,7 +26,7 @@ my-skill/
 | ----- | -------- | ----- |
 | `name` | Yes | 1–64 characters: lowercase letters, digits and hyphens. No leading, trailing or consecutive hyphens. Must match the folder name. |
 | `description` | Yes | 1–1024 characters. Say what the skill does **and** when to use it, with the keywords a user is likely to mention. |
-| `license` | No | A license name or a bundled license file. Use `MIT` unless the skill needs something else. |
+| `license` | No | A license name or a bundled license file. Use `Apache-2.0` unless the skill needs something else. |
 | `compatibility` | No | Up to 500 characters on environment requirements (product, system packages, network access). Leave it out unless needed. |
 | `metadata` | No | String key/value pairs. We set `author: layercache` and a `version`. |
 | `allowed-tools` | No | Space-separated list of pre-approved tools. Experimental. |
@@ -40,7 +40,7 @@ No other frontmatter fields are allowed.
 - Put deterministic work (parsing, conversion, validation) in `scripts/`. Scripts should be self-contained or document their dependencies and give clear error messages.
 - Include step-by-step instructions, at least one example, and common edge cases.
 - Never commit secrets, API keys or customer data. Everything in this repository is public.
-- If a skill needs a license other than MIT, set `license` and bundle the license file in the skill folder.
+- If a skill needs a license other than Apache-2.0, set `license` and bundle the license file in the skill folder.
 
 ## Before opening a pull request
 
@@ -48,4 +48,4 @@ No other frontmatter fields are allowed.
 2. Add the skill to the table in the root `README.md`.
 3. Try the skill in an agent and confirm it triggers on the requests you expect.
 
-Use one pull request per skill where possible.
+Use one pull request per skill where possible. By contributing, you agree your contribution is licensed under Apache-2.0.
