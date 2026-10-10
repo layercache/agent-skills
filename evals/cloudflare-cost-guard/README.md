@@ -1,10 +1,12 @@
 # Cloudflare Cost Guard evals
 
+> **Do not deploy anything in this folder.** These are deliberate counterexamples. Several cases contain code that runs up a Cloudflare bill on purpose. Never deploy them, run them, or copy them into a real project.
+
 Small Cloudflare projects with known answers, used to check that the [cloudflare-cost-guard](../../skills/cloudflare-cost-guard/) skill finds real runaway-cost paths and leaves bounded code alone.
 
 These files live outside the skill folder on purpose. Installing the skill never copies them, so they cannot end up in a user's project and be reported as problems there.
 
-The fixtures are static source code. Nothing here deploys or calls Cloudflare, and the projects are not meant to be deployed. Each Wrangler config is stored as `wrangler.jsonc.fixture`, so running `wrangler deploy` in a case folder finds no config and fails; `run.sh` restores the normal name only inside its temporary copy. There is no `package.json`, and all database IDs are zeros.
+The fixtures are static source code. Nothing here deploys or calls Cloudflare, and the projects are not meant to be deployed. Each Wrangler config is stored as `wrangler.jsonc.fixture`, so running `wrangler deploy` in a case folder finds no config and fails; `run.sh` restores the normal name only inside its temporary copy. There is no `package.json`, and all database IDs are zeros. Every fixture file also starts with a "do not deploy" notice; `run.sh` strips it from the copy the agent audits so it cannot hint at the answer, and the grader counts lines on the stripped text.
 
 ## Cases
 
@@ -64,7 +66,7 @@ A case passes when every expected finding is reported within 8 lines of its loca
 
 ## Adding a case
 
-1. Create `cases/v<n>-<name>/` (risky) or `cases/s<n>-<name>/` (bounded) with source and a Wrangler config named `wrangler.jsonc.fixture` (never `wrangler.jsonc`, and no `package.json`).
+1. Create `cases/v<n>-<name>/` (risky) or `cases/s<n>-<name>/` (bounded) with source and a Wrangler config named `wrangler.jsonc.fixture` (never `wrangler.jsonc`, and no `package.json`). Start every file with the do-not-deploy notice; copy it from an existing case.
 2. Write the code the way a real project would. Do not add comments that describe the bug or the safeguard; `evaltool.py check` rejects words like "vulnerable" or "eval" in fixtures.
 3. Add `expected.json` following an existing case.
 4. Run `python3 evaltool.py check` and `python3 evaltool.py self-test`.

@@ -5,6 +5,7 @@
   evaltool.py grade CASE REPORT     Grade one agent report against a case.
   evaltool.py grade-all REPORT_DIR  Grade REPORT_DIR/<case>.md for every case.
   evaltool.py self-test             Check the grader on synthetic reports (runs in CI).
+  evaltool.py strip DIR             Remove the do-not-deploy notice from a copied case.
 
 A report is the agent's Markdown output. The grader reads the JSON block the
 skill's report template ends with ("cost_guard_report": 1).
@@ -22,6 +23,30 @@ SEVERITIES = ["None", "Low", "Medium", "High", "Critical"]
 ANSWER_HINT = re.compile(r"\b(vulnerab|counterexample|expected finding|eval)", re.IGNORECASE)
 LINE_WINDOW = 8
 
+# Every fixture file starts with this notice. run.sh strips it from the copy
+# the agent audits, so the notice never hints at the answer, and line numbers
+# are computed on the stripped text to match what the agent sees.
+NOTICE_START = "COST GUARD TEST FIXTURE: DO NOT DEPLOY"
+NOTICE_END = "END OF TEST FIXTURE NOTICE"
+NOTICE_LINES = [
+    f"==== {NOTICE_START} ====",
+    "This is a deliberate counterexample for testing the cloudflare-cost-guard",
+    "skill. Cases in this folder contain code that can run up a Cloudflare bill",
+    "on purpose. Never deploy it, run it, or copy it into a real project.",
+    f"==== {NOTICE_END} ====",
+]
+COMMENT = {".ts": "//", ".fixture": "//", ".sql": "--"}
+
+
+def notice_for(path: Path) -> str:
+    prefix = COMMENT[path.suffix]
+    return "".join(f"{prefix} {line}\n" for line in NOTICE_LINES) + "\n"
+
+
+def strip_notice(path: Path, text: str) -> str:
+    notice = notice_for(path)
+    return text[len(notice):] if text.startswith(notice) else text
+
 
 # ---------------------------------------------------------------- cases
 
@@ -31,7 +56,8 @@ def load_case(case_dir: Path) -> dict:
 
 def locate(case_dir: Path, file: str, snippet: str) -> int:
     """Return the 1-based line where snippet starts; it must occur exactly once."""
-    text = (case_dir / file).read_text(encoding="utf-8")
+    path = case_dir / file
+    text = strip_notice(path, path.read_text(encoding="utf-8"))
     count = text.count(snippet)
     if count != 1:
         raise ValueError(f"{case_dir.name}/{file}: snippet found {count} times, need exactly 1: {snippet!r}")
@@ -91,7 +117,13 @@ def check_cases() -> list[str]:
         # Fixtures must not tell the agent what the answer is.
         for src in case_dir.rglob("*"):
             if src.is_file() and src.name != "expected.json":
-                for lineno, line in enumerate(src.read_text(encoding="utf-8").splitlines(), 1):
+                text = src.read_text(encoding="utf-8")
+                if src.suffix not in COMMENT:
+                    errors.append(f"{name}/{src.relative_to(case_dir)}: unsupported fixture file type")
+                    continue
+                if not text.startswith(notice_for(src)):
+                    errors.append(f"{name}/{src.relative_to(case_dir)}: missing the do-not-deploy notice at the top")
+                for lineno, line in enumerate(strip_notice(src, text).splitlines(), 1):
                     if ANSWER_HINT.search(line):
                         errors.append(f"{name}/{src.relative_to(case_dir)}:{lineno}: fixture hints at the answer")
     return errors
@@ -247,6 +279,11 @@ def main(argv: list[str]) -> int:
         ok, notes = grade(CASES / argv[1], Path(argv[2]).read_text(encoding="utf-8"))
         print(f"{'pass' if ok else 'FAIL'}  {argv[1]}: {'; '.join(notes)}")
         return 0 if ok else 1
+    if len(argv) == 2 and argv[0] == "strip":
+        for src in Path(argv[1]).rglob("*"):
+            if src.is_file() and src.suffix in COMMENT:
+                src.write_text(strip_notice(src, src.read_text(encoding="utf-8")), encoding="utf-8")
+        return 0
     if len(argv) == 2 and argv[0] == "grade-all":
         return grade_all(Path(argv[1]))
     print(__doc__)

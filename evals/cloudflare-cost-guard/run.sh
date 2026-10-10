@@ -28,6 +28,8 @@ for name in "${cases[@]}"; do
   cp -R "$HERE/cases/$name/." "$work/"
   rm -f "$work/expected.json"
   # Configs are stored as *.fixture so nobody can deploy a case from the repo.
+  # The do-not-deploy notice is stripped too, so it cannot hint at the answer.
+  python3 "$HERE/evaltool.py" strip "$work"
   for cfg in "$work"/wrangler.*.fixture; do mv "$cfg" "${cfg%.fixture}"; done
   git -C "$work" init -q
   echo "running $name"
