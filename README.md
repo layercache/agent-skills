@@ -1,6 +1,6 @@
 # Layer Cache Agent Skills
 
-Free, open-source [Agent Skills](https://agentskills.io) for coding agents, maintained by [Layer Cache](https://github.com/layercache). Each skill is a self-contained folder of instructions and reference material that an agent loads when a task calls for it. Every skill follows the open [Agent Skills specification](https://agentskills.io/specification), so it works in Claude Code, Codex, Cursor, OpenCode and other agents that support the format.
+Free, open-source [Agent Skills](https://agentskills.io) for coding agents, maintained by [Layer Cache](https://github.com/layercache). Each skill is a self-contained folder of instructions and reference material that an agent loads when a task calls for it. Every skill follows the open [Agent Skills specification](https://agentskills.io/specification), so it works in any agent that supports the format, including Codex, Cursor, GitHub Copilot, Gemini CLI, OpenCode, Windsurf and Claude Code.
 
 ## Skills
 
@@ -22,10 +22,11 @@ npx skills add layercache/agent-skills#v1.3.0 --list
 npx skills add layercache/agent-skills#v1.3.0 --skill cloudflare-cost-guard
 
 # Install for your user account instead, so every project can use it
-npx skills add layercache/agent-skills#v1.3.0 --skill cloudflare-cost-guard -g -a claude-code
+# (-a names your agent: codex, cursor, github-copilot, gemini-cli, opencode, claude-code, ...)
+npx skills add layercache/agent-skills#v1.3.0 --skill cloudflare-cost-guard -g -a <agent>
 
 # Install for specific agents only
-npx skills add layercache/agent-skills#v1.3.0 --skill cloudflare-cost-guard -a claude-code -a codex
+npx skills add layercache/agent-skills#v1.3.0 --skill cloudflare-cost-guard -a codex -a cursor
 
 # Install every skill in this repository
 npx skills add layercache/agent-skills#v1.3.0 --skill '*'
@@ -33,9 +34,9 @@ npx skills add layercache/agent-skills#v1.3.0 --skill '*'
 
 **What gets installed:** only the skill folder (`skills/<name>/`): Markdown instructions, reference notes and a report template. It contains no Wrangler config, `package.json` or runnable Worker code; example code appears only as fenced snippets in Markdown. The test projects under `evals/` are never installed.
 
-**Project vs. global:** a project install puts the skill in the project's agent folder (for example `.claude/skills/`), so it can be committed and shared with your team. A global install (`-g`) puts it in your home directory for all your projects. Not every agent supports global installs: without `-a`, the CLI reports those agents as failed and still installs for the rest, so name your agents with `-a` to avoid a confusing result.
+**Project vs. global:** a project install puts the skill in the project's agent folder (for example `.agents/skills/`, which many agents share), so it can be committed and shared with your team. A global install (`-g`) puts it in your home directory for all your projects. Not every agent supports global installs: without `-a`, the CLI reports those agents as failed and still installs for the rest, so name your agents with `-a` to avoid a confusing result. The [skills CLI](https://github.com/vercel-labs/skills#supported-agents) lists every supported agent, its `-a` name and its folders.
 
-**Without the CLI:** copy the skill folder into your agent's skills directory, for example `~/.claude/skills/` for Claude Code. On Claude.ai, zip the folder and upload it under Settings > Capabilities > Skills.
+**Without the CLI:** copy the skill folder (`skills/<name>/`) into your agent's skills directory, such as `.agents/skills/` in a project. Agents that take uploaded skills (for example Claude.ai) accept the folder as a zip.
 
 ## Use
 
@@ -45,7 +46,7 @@ Agents load a skill when your request matches its description, so you can just a
 
 > Could anything here run up our Cloudflare bill on its own?
 
-Most agents also let you name the skill directly, for example `/cloudflare-cost-guard` in Claude Code.
+Many agents also let you call a skill by name (for example `/cloudflare-cost-guard`); check your agent's docs for the exact syntax.
 
 ## Cloudflare Cost Guard
 
