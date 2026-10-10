@@ -27,6 +27,8 @@ for name in "${cases[@]}"; do
   work="$(mktemp -d)"
   cp -R "$HERE/cases/$name/." "$work/"
   rm -f "$work/expected.json"
+  # Configs are stored as *.fixture so nobody can deploy a case from the repo.
+  for cfg in "$work"/wrangler.*.fixture; do mv "$cfg" "${cfg%.fixture}"; done
   git -C "$work" init -q
   echo "running $name"
   # shellcheck disable=SC2086 # AGENT_CMD is intentionally word-split

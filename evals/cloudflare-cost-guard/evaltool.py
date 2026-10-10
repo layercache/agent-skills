@@ -68,8 +68,11 @@ def check_cases() -> list[str]:
             errors.append(f"{name}: vulnerable case has no expected_findings")
         if kind == "safe" and (case.get("expected_findings") or not case.get("must_not_flag")):
             errors.append(f"{name}: safe case needs must_not_flag and no expected_findings")
-        if not any((case_dir / f).exists() for f in ("wrangler.toml", "wrangler.json", "wrangler.jsonc")):
-            errors.append(f"{name}: missing Wrangler config")
+        if not any((case_dir / f).exists() for f in ("wrangler.toml.fixture", "wrangler.json.fixture", "wrangler.jsonc.fixture")):
+            errors.append(f"{name}: missing Wrangler config (stored as wrangler.<ext>.fixture)")
+        live = [f for f in ("wrangler.toml", "wrangler.json", "wrangler.jsonc", "package.json") if (case_dir / f).exists()]
+        if live:
+            errors.append(f"{name}: {', '.join(live)} would make the fixture deployable; store configs as *.fixture")
         for item in case.get("expected_findings", []):
             for key in ("id", "service", "file", "contains", "severity", "autonomous", "explanation"):
                 if key not in item:
