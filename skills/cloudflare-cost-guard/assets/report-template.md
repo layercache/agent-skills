@@ -1,20 +1,22 @@
 # Cloudflare Cost Guard report
 
-<!-- Fill every section. Remove these comments. Keep headings in this order. -->
+<!-- Keep headings in this order and remove these comments. Drop a section that would be empty, except "At a glance", "Findings" (write "None"), "Before you change anything" and "Machine-readable summary". -->
 
 **Repository:** <name or path> · **Branch:** <branch, or "not a Git checkout"> · **Commit:** <short SHA, or "not a Git checkout"> · **Date:** <YYYY-MM-DD>
 **Pricing data:** <one of: "all figures confirmed at developers.cloudflare.com on YYYY-MM-DD" · "bundled snapshot dated 2026-10-10, not re-verified" · "mixed: confirmed on YYYY-MM-DD for <products>; snapshot for <products>">
 
+## At a glance
+
+<!-- At most five lines. -->
+
+- **Overall risk:** <Critical | High | Medium | Low | None> · <n> Critical · <n> High · <n> Medium · <n> Low <!-- the highest finding severity; "None" when there are no findings -->
+- **Autonomous runaway paths:** <Yes (n) | No> <!-- autonomous findings rated High or Critical -->
+- **Top actions:** 1. <action> 2. <action> 3. <action>
+- **Worst finding at a stated rate:** <CG-n: operations per stated volume × documented rate, e.g. "per 1M junk requests: ~2M D1 rows written ≈ $2 at $1.00/M (snapshot 2026-10-10)"; or "no findings">
+
 ## Executive summary
 
-- **Overall assessed risk:** <Critical | High | Medium | Low | None> <!-- the highest finding severity; "None" when there are no findings -->
-- **Autonomous runaway paths found:** <Yes (n) | No> <!-- autonomous findings rated High or Critical -->
-- **Findings:** <n> Critical · <n> High · <n> Medium · <n> Low
 - **Services detected:** <comma-separated list>
-- **Most important actions:**
-  1. <action>
-  2. <action>
-  3. <action>
 - **Scope and limitations:** <branch and commit reviewed, exclusions applied, out-of-scope repos or Workers, what could not be verified>
 
 ## Service inventory
@@ -38,10 +40,11 @@
 | Service | <product, or several> |
 | Location | <path:line> (and other path:line entries on the path; for a config-only finding, the line of the relevant key) |
 | Trigger | <how it starts: request to /route, cron "* * * * *", alarm, queue message> |
-| Exposure | <autonomous / externally drivable / credential-gated (which credential)> |
+| Exposure | <autonomous / externally drivable / credential-gated (which credential) / n/a (missing global safeguard)> |
 | Call path | <entrypoint → function → billable operation> |
 | Scenario | <how usage runs away, what it grows with, whether it continues without users> |
 | Existing safeguards | <verified in code with file:line, or "none found"> |
+| Cost at a stated rate | <operations per stated volume (per 1M outside requests, per day, per run) × documented rate, with source and date; "not documented" with the reason when there is no rate. Never a total bill.> |
 | Protection status | <verified in code / platform-enforced / account setting to verify / unknown> |
 | Recommendation | <the safeguard that is missing and where it belongs; no code> |
 
@@ -86,7 +89,7 @@ Any fix for these findings changes exactly the code paths that can generate cost
 
 ## Machine-readable summary
 
-<!-- "file"/"line" is the main location; "locations" lists every location on the path. "autonomous" is true when the path keeps running with no further outside input. "autonomous_runaway_paths" is true only if some finding is autonomous and rated High or Critical. Service names: Workers, Pages Functions, Durable Objects, D1, KV, R2, Queues, Workflows, Cron Triggers, Workers AI, AI Gateway, Browser Run, Containers, Hyperdrive, Vectorize, Email Service, Workers Logs, or "Third-party: <provider>". Safeguards such as the Rate Limiting binding are not services. -->
+<!-- "file"/"line" is the main location; "locations" lists every location on the path. "autonomous" is true when the path keeps running with no further outside input. "exposure" is "n/a" only for a missing global safeguard filed on its own. "autonomous_runaway_paths" is true only if some finding is autonomous and rated High or Critical. Service names: Workers, Pages Functions, Durable Objects, D1, KV, R2, Queues, Workflows, Cron Triggers, Workers AI, AI Gateway, Browser Run, Containers, Hyperdrive, Vectorize, Email Service, Workers Logs, or "Third-party: <provider>". Safeguards such as the Rate Limiting binding are not services. -->
 
 ```json
 {
@@ -104,7 +107,7 @@ Any fix for these findings changes exactly the code paths that can generate cost
       "file": "<primary path relative to repo root>",
       "line": 0,
       "locations": [{ "file": "<path>", "line": 0 }],
-      "exposure": "<autonomous|external|credential>",
+      "exposure": "<autonomous|external|credential|n/a>",
       "autonomous": false,
       "title": "<short title>"
     }

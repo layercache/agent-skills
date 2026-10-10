@@ -49,6 +49,20 @@ Source: [D1 pricing](https://developers.cloudflare.com/d1/platform/pricing/), [D
 | Max database size | 500 MB | 10 GB |
 | Query duration | 30 s | 30 s |
 
+**What counts as a row written** (D1 pricing page and [FAQ](https://developers.cloudflare.com/d1/reference/faq/), checked 2026-10-10):
+
+- `INSERT`, `UPDATE` and `DELETE` are all write operations, so deleted rows count as rows written.
+- Writing to a column that an index covers adds at least one more row written per index. Indexes are updated on insert, update and delete; the docs do not say explicitly that index rows are billed on `DELETE`, so treat that as likely but undocumented.
+- Tables and indexes both count toward storage.
+
+**Not documented** (describe the mechanism and list it as an evidence gap; never state a number):
+
+- Whether `INSERT … ON CONFLICT DO NOTHING` or `INSERT OR IGNORE` that changes nothing counts as a row written.
+- Whether `AUTOINCREMENT` (the `sqlite_sequence` update) adds a row written.
+- Whether an `UPDATE` that sets a value to what it already was counts.
+
+Each query result's `meta.rows_read` and `meta.rows_written` report the real counts, and the dashboard shows them under Metrics. Suggest measuring an uncertain path that way under "Recommended follow-up", in a non-production database.
+
 ## Workers KV
 
 Source: [Workers pricing, KV section](https://developers.cloudflare.com/workers/platform/pricing/). On Free, operations past the daily limit fail with an error.

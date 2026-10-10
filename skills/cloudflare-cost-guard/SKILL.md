@@ -4,7 +4,7 @@ description: Read-only audit of a Cloudflare codebase for runaway usage and surp
 license: MIT
 metadata:
   author: layercache
-  version: "1.1.0"
+  version: "1.2.0"
 ---
 
 # Cloudflare Cost Guard
@@ -91,7 +91,7 @@ For each remaining path, check the safeguards listed in [references/safeguards.m
 
 Record which safeguards exist and where (file:line), and which are missing.
 
-Then check the **global safeguards** that no single path shows. When a missing one is already part of a finding above (for example no rate limit on the route that finding is about), add it to that finding's recommendation instead of filing it again. Otherwise report it as its own finding, usually Low, with `exposure` set to that of the paths it would protect and `autonomous` false (a missing safeguard is not itself a runaway path). Skip safeguards that would protect nothing (for example `workers.dev` on a Worker with no `fetch` handler).
+Then check the **global safeguards** that no single path shows. When a missing one is already part of a finding above (for example no rate limit on the route that finding is about), add it to that finding's recommendation instead of filing it again. Otherwise report it as its own finding, usually Low, with exposure `n/a` and `autonomous` false (a missing safeguard is not itself a runaway path). Skip safeguards that would protect nothing (for example `workers.dev` on a Worker with no `fetch` handler).
 
 - A kill switch that every autonomous handler (alarm, cron, queue consumer, workflow) reads before doing billable work, and that stops rescheduling.
 - Retention or cleanup for tables, KV prefixes, R2 prefixes and Durable Object storage that grow with traffic (sessions, verification tokens, request logs, rate-limit counters, events). Growth makes every scan and every scheduled job more expensive over time.
@@ -100,7 +100,7 @@ Then check the **global safeguards** that no single path shows. When a missing o
 ### Phase E: Assess billing exposure
 
 1. For each affected service, explain how it is billed (requests, duration, rows, operations, neurons, browser hours, vCPU and memory time) using [references/services.md](references/services.md).
-2. Use [references/pricing-and-limits.md](references/pricing-and-limits.md) for numbers. It is a dated snapshot: if you can reach `developers.cloudflare.com`, confirm the figures you quote and say which source and date you used. Express exposure as operation counts (requests per day, rows written per run). Quote a dollar figure only as a documented rate times a count, with the rate's source and date; never invent a total bill. When a figure is unverified or undocumented (for example whether a no-op `UPDATE` counts as a row written), describe the mechanism and list it as an evidence gap.
+2. Use [references/pricing-and-limits.md](references/pricing-and-limits.md) for numbers. It is a dated snapshot: if you can reach `developers.cloudflare.com`, confirm the figures you quote and say which source and date you used. Express exposure as operation counts (requests per day, rows written per run). Give each finding a **cost at a stated rate**: the operation count per stated volume (per 1M outside requests, per day, per run) times the documented rate, with the rate's source and date, for example "per 1M junk requests: ~2M D1 rows written ≈ $2 at $1.00 per million (snapshot 2026-10-10)". State the volume you assumed. Never add these up into a total bill or predict an invoice. When a figure is unverified or undocumented (for example whether a no-op `UPDATE` counts as a row written), describe the mechanism and list it as an evidence gap.
 3. Classify every protection as one of: **verified in code**, **platform-enforced** (documented Cloudflare limit), **account setting to verify manually**, or **unknown**.
 4. Read [references/account-controls.md](references/account-controls.md) and build the dashboard checklist. Budget alerts and usage notifications only send email; they do not stop usage. Workers Paid has no hard spending cap.
 
@@ -118,7 +118,12 @@ Confidence is **High** when you traced the full path in code, **Medium** when on
 Calibration rules:
 
 - **Autonomous and unbounded** paths are the only ones that start at Critical.
-- **Externally drivable** paths are rated by what each request costs and whether anything caps total volume. Rate High when a request that anyone can send causes writes, fan-out, or a call to an expensive service (AI, Browser Run, email, a metered API) and the only bound is a per-IP or per-location limit, or none. Per-location and per-IP limits (including the Workers Rate Limiting binding keyed by IP) are partial bounds: a distributed client avoids them. They lower a finding to Medium only when combined with authentication or a per-user cap.
+- **Externally drivable** paths are rated by amplification: how many billable operations one outside request causes, and what each one costs. Almost every public API writes something, so a write alone is not High.
+  - **High:** one request causes fan-out (many rows, many objects, many subrequests, a loop), or calls an expensive or reputational service (Workers AI or another LLM, Browser Run, a container, email or SMS to an address the caller chooses, a metered third-party API), and nothing caps total volume beyond a per-IP or per-location limit.
+  - **Medium:** a small fixed number of cheap operations per request (a few D1 rows, a KV write) and the data persists or compounds (no retention, or a scheduled job scans it later).
+  - **Low:** about one cheap operation per request with retention in place. This is the linear cost of being public: mention it under the global safeguards (budget alerts, `workers.dev`, zone rate limiting) instead of filing it as a finding.
+  - Per-IP and per-location limits (including the Workers Rate Limiting binding keyed by IP) are partial bounds that a distributed client avoids; they do not lower the level. Authentication combined with a per-user cap lowers it by one.
+  - Free self sign-up counts as "anyone", but rate the path by what one account unlocks, not by the fact that accounts can be created.
 - **Credential-gated** paths are rated by the worst case if the credential leaks: Medium when one static secret unlocks a large fan-out or bulk operation with no per-call cap, Low when each call is capped or the damage is small.
 - **One root cause, one finding.** When several problems belong to one loop or path (the loop, its error path, who can start it, what it writes), report one finding and list the contributing problems in its scenario. Separate findings are for paths that could be fixed independently.
 - **Confidence** is about whether the path exists as described. If the path is fully traced but its size depends on data you cannot see (table sizes, indexes, traffic), keep confidence High and say what the size depends on.
@@ -128,13 +133,15 @@ Calibration rules:
 
 ### Report
 
-Fill in [assets/report-template.md](assets/report-template.md). Show the report in the conversation. Write it to a file only if the user gives a path; never write it into the audited repository unless the user names that location.
+Fill in [assets/report-template.md](assets/report-template.md). Start with its "At a glance" block (at most five lines: overall risk, the top actions, and the cost of the worst finding at a stated rate) so the answer is readable before the detail. Drop sections that would be empty, except "At a glance", "Findings" (write "None" when there are none), "Before you change anything" and the machine-readable summary.
 
-Every finding needs: severity, confidence, service(s), location(s) (file:line), trigger and exposure (autonomous, externally drivable, or credential-gated), scenario, existing safeguards, and a recommendation. Recommendations name the missing safeguard and where it belongs (for example "cap retries at a fixed count and send exhausted messages to a dead letter queue in `src/consumer.ts:42`"). Do not write replacement code.
+Show the report in the conversation. If the full report is long (more than about 150 lines) and you can write files, you may instead save it to a file **outside** the audited repository (for example in the system temporary directory) and say where; the conversation must still show "At a glance", a one-line list of findings, "Before you change anything" and the machine-readable summary. Never write into the audited repository unless the user names that location.
+
+Every finding needs: severity, confidence, service(s), location(s) (file:line), trigger and exposure (autonomous, externally drivable, credential-gated, or n/a for a missing global safeguard), scenario, existing safeguards, cost at a stated rate, and a recommendation. Recommendations name the missing safeguard and where it belongs (for example "cap retries at a fixed count and send exhausted messages to a dead letter queue in `src/consumer.ts:42`"). Do not write replacement code.
 
 If no material problems are found, say so and list what was reviewed, without claiming the application is safe.
 
-Keep the template's "Before you change anything" section word for word, and finish with the machine-readable summary (the JSON block from the template) so results can be compared between runs. In it, `autonomous_runaway_paths` is true only when at least one finding is autonomous and rated High or Critical, matching the executive summary. Name services with the names in the template's comment so runs compare cleanly.
+Keep the template's "Before you change anything" section word for word, and finish with the machine-readable summary (the JSON block from the template) so results can be compared between runs. In it, `autonomous_runaway_paths` is true only when at least one finding is autonomous and rated High or Critical, matching "At a glance". Name services with the names in the template's comment so runs compare cleanly.
 
 ## After the audit
 

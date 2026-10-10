@@ -19,7 +19,7 @@ The fixtures are static source code. Nothing here deploys or calls Cloudflare, a
 | `v5-unbounded-d1-writes` | Risky | Every-minute cron that rewrites every row of a growing indexed D1 table | High or Critical |
 | `v6-ai-agent-loop` | Risky | Workers AI agent loop with no iteration or token budget | High or Critical |
 | `v7-background-fanout` | Risky | Every-5-minute cron doing KV, D1, AI, R2 and Queue work for every user | Medium to Critical |
-| `v8-unauthenticated-write` | Risky | Every public request writes D1 and KV, bounded only by a per-IP limit, on `workers.dev` by default | High or Critical |
+| `v8-unauthenticated-write` | Risky | Every public request writes one D1 row and one KV key with no retention, bounded only by a per-IP limit, on `workers.dev` by default | Medium |
 | `v9-admin-token-fanout` | Risky | One static admin token gates a route that wakes every Durable Object | Medium or High |
 | `s1-bounded-alarm` | Bounded | Alarm with minimum interval, idle shutdown and persisted limits | Nothing above Low |
 | `s2-bounded-queue-consumer` | Bounded | Consumer with `max_retries`, dead letter queue, backoff and idempotency | Nothing above Low |

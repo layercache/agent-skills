@@ -51,7 +51,7 @@ On Workers Paid, the monthly subscription is a minimum, not a spending limit. A 
 
 **How it works:** the agent inventories your Wrangler configs and handlers, searches for known runaway patterns, traces each one from its entrypoint to the billable operations, checks whether real safeguards bound it, and explains how each affected service is billed.
 
-**What you get:** a report with an executive summary, a service inventory, findings with severity, confidence, file and line references, a list of Cloudflare dashboard settings to check by hand, prioritized recommendations, evidence gaps, and a JSON summary.
+**What you get:** a report that opens with a short "At a glance" block (overall risk, top actions, and the worst finding priced at a documented rate), then a service inventory, findings with severity, confidence, file and line references and a cost at a stated rate, a list of Cloudflare dashboard settings to check by hand, prioritized recommendations, evidence gaps, and a JSON summary.
 
 **Example finding**
 

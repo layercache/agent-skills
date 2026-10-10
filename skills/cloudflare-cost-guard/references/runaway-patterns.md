@@ -91,7 +91,7 @@ A search hit is only a lead. Confirm every pattern by tracing the path (SKILL.md
 
 - **Leads:** `\.put\(` (KV, R2, DO storage) or `INSERT`/`UPDATE` in middleware or the main `fetch` path; analytics counters; "last seen" timestamps.
 - **Real when:** every request (including bots and static-looking routes) causes a write, and writes are the expensive operation for that product (KV writes, D1 rows written).
-- **Starting severity:** High when unauthenticated requests cause the write and the only bound is a per-IP or per-location rate limit, or none (anyone sets the volume; see the calibration rules in SKILL.md). Medium when authenticated or capped per user. Low when the write is rare or on an internal route.
+- **Starting severity:** rate by amplification (see the calibration rules in SKILL.md). Medium when anyone can cause a few cheap writes per request and the data has no retention or a scheduled job scans it. Low when it is about one cheap write per request with retention in place, or the route is authenticated with a per-user cap; mention that under global safeguards rather than as a finding. High only when one request writes many rows or objects, or the path also calls an expensive service (then it is usually P8 or P12 as well).
 
 ## P11 Workflow re-creation and unlimited step retries
 

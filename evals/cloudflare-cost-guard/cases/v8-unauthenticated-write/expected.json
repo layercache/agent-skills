@@ -1,15 +1,17 @@
 {
   "kind": "vulnerable",
-  "summary": "Every public request writes a D1 row and a KV key; the only bound is a per-IP, per-location rate limit, and the Worker is on workers.dev by default.",
+  "summary": "Every public request writes a D1 row and a KV key with no retention; the only bound is a per-IP, per-location rate limit, and the Worker is on workers.dev by default. Tests that a few cheap writes per request are rated by amplification (Medium), not High.",
   "expected_findings": [
     {
       "id": "unauthenticated-write-per-request",
       "service": "D1",
       "file": "src/index.ts",
       "contains": "\"INSERT INTO request_log (slug, ip, user_agent, referrer, created_at) VALUES (?, ?, ?, ?, ?)\"",
-      "severity": ["High", "Critical"],
+      "severity": [
+        "Medium"
+      ],
       "autonomous": false,
-      "explanation": "Any request to any path, including unknown slugs, inserts a request_log row and writes a KV key (KV writes are the expensive KV operation) before the 404 check. The only bound is a Rate Limiting binding keyed by IP, which is per location and avoided by distributed clients. There are no routes, so workers_dev defaults to true and zone WAF or rate-limiting rules would not apply. request_log has no cleanup."
+      "explanation": "Any request to any path, including unknown slugs, inserts a request_log row and writes a KV key before the 404 check. That is a small fixed number of cheap writes per request, not fan-out, so it is Medium rather than High; it stays a finding because request_log has no cleanup, so the data compounds. The only bound is a Rate Limiting binding keyed by IP, which is per location and avoided by distributed clients. There are no routes, so workers_dev defaults to true and zone WAF or rate-limiting rules would not apply."
     }
   ],
   "must_not_flag": []
