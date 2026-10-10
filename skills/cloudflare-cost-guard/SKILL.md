@@ -91,7 +91,7 @@ For each remaining path, check the safeguards listed in [references/safeguards.m
 
 Record which safeguards exist and where (file:line), and which are missing.
 
-Then check the **global safeguards** that no single path shows. When a missing one is already part of a finding above (for example no rate limit on the route that finding is about), add it to that finding's recommendation instead of filing it again. Otherwise report it as its own finding, usually Low, with `exposure` set to that of the paths it would protect and `autonomous` false. Skip safeguards that would protect nothing (for example `workers.dev` on a Worker with no `fetch` handler).
+Then check the **global safeguards** that no single path shows. When a missing one is already part of a finding above (for example no rate limit on the route that finding is about), add it to that finding's recommendation instead of filing it again. Otherwise report it as its own finding, usually Low, with `exposure` set to that of the paths it would protect and `autonomous` false (a missing safeguard is not itself a runaway path). Skip safeguards that would protect nothing (for example `workers.dev` on a Worker with no `fetch` handler).
 
 - A kill switch that every autonomous handler (alarm, cron, queue consumer, workflow) reads before doing billable work, and that stops rescheduling.
 - Retention or cleanup for tables, KV prefixes, R2 prefixes and Durable Object storage that grow with traffic (sessions, verification tokens, request logs, rate-limit counters, events). Growth makes every scan and every scheduled job more expensive over time.

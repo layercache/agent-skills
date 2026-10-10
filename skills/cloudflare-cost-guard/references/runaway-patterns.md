@@ -2,7 +2,7 @@
 
 A catalogue of code shapes that generate uncontrolled billable usage. Each entry gives search leads, what makes it real, the usual false positives, and a starting severity. Search leads are regular expressions for a code search tool; adapt them to the language in use.
 
-A search hit is only a lead. Confirm every pattern by tracing the path (SKILL.md, Phase C) and checking safeguards ([safeguards.md](safeguards.md)).
+A search hit is only a lead. Confirm every pattern by tracing the path (SKILL.md, Phase C) and checking safeguards ([safeguards.md](safeguards.md)). Starting severities are starting points: the calibration rules in SKILL.md decide the final rating and may raise or lower it. When several patterns describe one path (for example P1 with P14), report one finding at the highest applicable severity.
 
 ## Contents
 
@@ -57,7 +57,7 @@ A search hit is only a lead. Confirm every pattern by tracing the path (SKILL.md
 ## P5 Recursive Worker fetch or service binding call
 
 - **Leads:** `fetch\(\s*request\.url`, `fetch\(\s*new URL\(.*request\.url`, `url\.origin`, own hostname string literals, `env\.\w+\.fetch\(` pointing at the same Worker (`services` entry whose `service` equals the Worker's own `name`), `this\.env\.SELF`.
-- **Real when:** a handler calls itself (directly or via another Worker) for pagination, fan-out or "background" work. Cloudflare stops a single chain after 16 Worker-to-Worker calls (error 1019), but fan-out multiplies: two calls per level is up to 2^16 invocations from one external request.
+- **Real when:** a handler calls itself (directly or via another Worker) for pagination, fan-out or "background" work. Cloudflare stops a single chain after 16 calls from a Worker to itself or another Worker, including `fetch` to its own hostname (error 1019, tracked by the `CF-EW-Via` header), but fan-out multiplies: two calls per level is up to 2^16 invocations from one external request.
 - **False positives:** calls to a *different* Worker that does not call back; one-level proxies.
 - **Starting severity:** High; Critical if the chain is started by a cron or alarm and re-started every run.
 
