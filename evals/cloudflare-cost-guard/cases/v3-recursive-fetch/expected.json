@@ -1,0 +1,16 @@
+{
+  "kind": "vulnerable",
+  "summary": "Worker paginates by fetching its own public /sync route with fan-out.",
+  "expected_findings": [
+    {
+      "id": "recursive-self-fetch",
+      "service": "Workers",
+      "file": "src/index.ts",
+      "contains": "ctx.waitUntil(fetch(child.toString()));",
+      "severity": ["High", "Critical"],
+      "autonomous": false,
+      "explanation": "Each /sync request calls the supplier API, writes every item to KV, then fetches its own public origin once per next cursor via waitUntil. The chain is cut at 16 Worker-to-Worker calls (error 1019) but fan-out multiplies, so one unauthenticated request can cause up to branching^16 invocations, KV writes and supplier API calls. The supplier controls the branching factor."
+    }
+  ],
+  "must_not_flag": []
+}

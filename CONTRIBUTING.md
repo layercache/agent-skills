@@ -39,13 +39,22 @@ No other frontmatter fields are allowed.
 - Reference files with paths relative to the skill root and keep references one level deep.
 - Put deterministic work (parsing, conversion, validation) in `scripts/`. Scripts should be self-contained or document their dependencies and give clear error messages.
 - Include step-by-step instructions, at least one example, and common edge cases.
+- Keep each skill self-contained: link only to files inside its own folder. Installers copy just the skill folder, so links to the rest of the repository break.
 - Never commit secrets, API keys or customer data. Everything in this repository is public.
 - If a skill needs a license other than MIT, set `license` and bundle the license file in the skill folder.
+
+## Evals
+
+Test cases for a skill go in `evals/<skill-name>/`, never inside the skill folder. Anything in the skill folder is installed into users' projects, and example code there could be picked up by the skill itself or by the user's own tools. See [evals/cloudflare-cost-guard](evals/cloudflare-cost-guard/) for the layout: small fixture projects with an `expected.json` each, a checker CI runs, and a manual runner that drives a real agent.
 
 ## Before opening a pull request
 
 1. Install the reference validator with `pip install skills-ref`, then run `scripts/validate.sh` and fix any errors.
-2. Add the skill to the table in the root `README.md`.
-3. Try the skill in an agent and confirm it triggers on the requests you expect.
+2. Run `python3 scripts/check_skills.py` to check links stay inside each skill folder.
+3. If the skill has evals, run its checks (for example `python3 evals/cloudflare-cost-guard/evaltool.py check`) and, for changes to the skill's instructions, the agent eval described in its README.
+4. Add the skill to the table in the root `README.md`, with its `npx skills add layercache/agent-skills --skill <skill-name>` command.
+5. Try the skill in an agent and confirm it triggers on the requests you expect.
+
+CI runs the same checks plus a secret scan on every pull request.
 
 Use one pull request per skill where possible. By contributing, you agree your contribution is licensed under MIT.

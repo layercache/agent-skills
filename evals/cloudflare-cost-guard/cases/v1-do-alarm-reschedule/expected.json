@@ -1,0 +1,16 @@
+{
+  "kind": "vulnerable",
+  "summary": "Durable Object alarm reschedules itself every second forever, and immediately on error.",
+  "expected_findings": [
+    {
+      "id": "alarm-self-reschedule",
+      "service": "Durable Objects",
+      "file": "src/room.ts",
+      "contains": "await this.ctx.storage.setAlarm(Date.now() + HEARTBEAT_MS);\n  }",
+      "severity": ["Critical"],
+      "autonomous": true,
+      "explanation": "alarm() always calls setAlarm(now + 1s) with no idle check, stop condition or tick limit, so once any request reaches a room the object runs about 86,400 alarms a day forever, each billed as a DO request, a row written for setAlarm, SQLite writes for every member and duration. The catch block reschedules with Date.now(), so a persistent error becomes a tight loop. Room names come from the query string, so the number of perpetual objects is caller-controlled."
+    }
+  ],
+  "must_not_flag": []
+}

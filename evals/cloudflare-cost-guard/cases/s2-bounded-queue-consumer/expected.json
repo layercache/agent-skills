@@ -1,0 +1,14 @@
+{
+  "kind": "safe",
+  "summary": "Queue consumer with max_retries, dead letter queue, capped backoff and an idempotency claim.",
+  "expected_findings": [],
+  "max_overall_severity": "Low",
+  "must_not_flag": [
+    {
+      "file": "src/index.ts",
+      "contains": "msg.retry({ delaySeconds: backoff(msg.attempts) });",
+      "max_severity": "Low",
+      "reason": "Retries use the platform retry path, so max_retries = 5 and the dead letter queue apply; delays back off to at most an hour; permanent 4xx failures are acked; D1 ON CONFLICT prevents duplicate deliveries."
+    }
+  ]
+}

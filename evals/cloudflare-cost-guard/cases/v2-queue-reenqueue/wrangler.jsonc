@@ -1,0 +1,9 @@
+{
+  "name": "webhook-relay",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-01",
+  "queues": {
+    "producers": [{ "binding": "DELIVERIES", "queue": "webhook-deliveries" }],
+    "consumers": [{ "queue": "webhook-deliveries", "max_batch_size": 10 }]
+  }
+}

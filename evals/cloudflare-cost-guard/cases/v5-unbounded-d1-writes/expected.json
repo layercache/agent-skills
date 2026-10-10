@@ -1,0 +1,16 @@
+{
+  "kind": "vulnerable",
+  "summary": "Every-minute cron rewrites every row of an ever-growing, indexed D1 table.",
+  "expected_findings": [
+    {
+      "id": "full-table-update-cron",
+      "service": "D1",
+      "file": "src/index.ts",
+      "contains": "UPDATE events SET score = score * 0.99",
+      "severity": ["High", "Critical"],
+      "autonomous": true,
+      "explanation": "The cron runs every minute and updates every row in events with no WHERE or LIMIT. score is indexed, so each row write also writes an index row. events grows with every POST and is never pruned, so rows written grow as rows x 2 x 1,440 per day without any user activity."
+    }
+  ],
+  "must_not_flag": []
+}

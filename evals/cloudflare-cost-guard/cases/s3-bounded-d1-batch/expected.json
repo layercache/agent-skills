@@ -1,0 +1,14 @@
+{
+  "kind": "safe",
+  "summary": "Authenticated, rate-limited import capped at 500 rows, written in batches of 100.",
+  "expected_findings": [],
+  "max_overall_severity": "Low",
+  "must_not_flag": [
+    {
+      "file": "src/index.ts",
+      "contains": "await env.DB.batch(chunk.map((row) => insert.bind(row.userId, row.kind, now)));",
+      "max_severity": "Low",
+      "reason": "Auth and the rate limiter run before any D1 work, the row count is capped at 500 before writing, and the loop is bounded by that cap."
+    }
+  ]
+}
