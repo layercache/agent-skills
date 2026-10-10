@@ -14,6 +14,9 @@
       }
     ]
   },
+  "ratelimits": [
+    { "name": "ENQUEUE_LIMITER", "namespace_id": "1002", "simple": { "limit": 100, "period": 60 } }
+  ],
   "d1_databases": [
     { "binding": "DB", "database_name": "deliveries", "database_id": "00000000-0000-0000-0000-000000000000" }
   ]
