@@ -52,4 +52,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for naming rules and writing guidance.
 
 ## License
 
-[MIT No Attribution (MIT-0)](LICENSE), unless a skill's own folder says otherwise. Use, copy and modify the skills however you like; no credit required. They are provided as is, without warranty.
+[MIT](LICENSE), unless a skill's own folder says otherwise.
