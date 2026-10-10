@@ -94,7 +94,7 @@ On Workers Paid, the monthly subscription is a minimum, not a spending limit. A 
 
 ## Contributing
 
-New skills and improvements are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for the conventions, local checks and how to add evals.
+Please fork the skills if you wish to make changes, these are also used internally by us and we can't manage pull requests at this time.
 
 ## License
 
