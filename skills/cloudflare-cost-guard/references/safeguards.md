@@ -28,12 +28,14 @@ For each safeguard you find, answer all of these:
 | Exponential backoff | Delay grows per attempt with a cap; `delaySeconds` on retries | Backoff computed but not awaited or passed |
 | Idempotency | Unique key checked and written atomically before side effects (`INSERT ... ON CONFLICT DO NOTHING`, DO storage transaction) | Check-then-act across KV (eventually consistent); key written after the side effect |
 | Concurrency limits | Queue `max_concurrency`; Durable Object as a single-writer lock; Workflow instance IDs for deduplication | Lock in KV; lock without expiry that deadlocks then gets removed by hand |
-| Rate limiting | Workers Rate Limiting binding or AI Gateway rate limits on public routes | The binding is per location and eventually consistent: a good brake, not exact accounting |
+| Rate limiting | Workers Rate Limiting binding keyed by user, API key or tenant, or AI Gateway rate limits, checked before the billable work | Keyed by IP or applied per location: a partial bound that distributed clients avoid. The binding is per location and eventually consistent: a brake, not accounting. Zone rate-limiting rules do not cover `workers.dev` or preview URLs |
 | Circuit breaker | Failure count and open-until time in durable storage, checked before calling the dependency | Breaker state in memory; breaker that opens but the caller still retries |
 | Timeouts and cancellation | `AbortSignal.timeout()` on subrequests; Workflow step timeouts | Timeout that triggers a retry loop |
 | Persistent kill switch | Flag in durable storage or a binding, read at the start of every autonomous handler, and stopping rescheduling too | Kill switch that stops work but still reschedules the alarm; KV flag with a long `cacheTtl` |
 | Max depth for queues/workflows | Generation or depth field in the message/params, checked against a fixed max | Depth field not copied to child messages |
-| Authentication | Expensive routes require auth before any billable call | Auth checked after parsing and enqueueing |
+| Authentication | Expensive routes require auth before any billable call | Auth checked after parsing and enqueueing; free self sign-up (anyone can get a token); one static shared secret guarding bulk work (assume it can leak, so also require a per-call cap) |
+| Library-provided protection | Library source (read for that one question) shows the limit applies on this path | Assumed from docs or defaults without reading the installed version; mark unknown if not installed |
+| Retention and cleanup | Delete, TTL or lifecycle rules on data that grows with traffic | Cleanup job that is itself unbounded (full-table delete every minute) |
 | Platform limits | Subrequest limit, 16-call loop limit, D1 queries per invocation, CPU limits | They bound one invocation, not repeated invocations |
 
 ## Classifying each protection in the report

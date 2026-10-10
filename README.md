@@ -20,7 +20,7 @@ npx skills add layercache/agent-skills --list
 npx skills add layercache/agent-skills --skill cloudflare-cost-guard
 
 # Install for your user account instead, so every project can use it
-npx skills add layercache/agent-skills --skill cloudflare-cost-guard -g
+npx skills add layercache/agent-skills --skill cloudflare-cost-guard -g -a claude-code
 
 # Install for specific agents only
 npx skills add layercache/agent-skills --skill cloudflare-cost-guard -a claude-code -a codex
@@ -29,7 +29,7 @@ npx skills add layercache/agent-skills --skill cloudflare-cost-guard -a claude-c
 npx skills add layercache/agent-skills --skill '*'
 ```
 
-**Project vs. global:** a project install puts the skill in the project's agent folder (for example `.claude/skills/`), so it can be committed and shared with your team. A global install (`-g`) puts it in your home directory for all your projects.
+**Project vs. global:** a project install puts the skill in the project's agent folder (for example `.claude/skills/`), so it can be committed and shared with your team. A global install (`-g`) puts it in your home directory for all your projects. Not every agent supports global installs: without `-a`, the CLI reports those agents as failed and still installs for the rest, so name your agents with `-a` to avoid a confusing result.
 
 **Without the CLI:** copy the skill folder into your agent's skills directory, for example `~/.claude/skills/` for Claude Code. On Claude.ai, zip the folder and upload it under Settings > Capabilities > Skills.
 
@@ -47,7 +47,7 @@ Most agents also let you name the skill directly, for example `/cloudflare-cost-
 
 On Workers Paid, the monthly subscription is a minimum, not a spending limit. A Durable Object alarm that reschedules itself, or a queue consumer that re-sends its own failures, keeps running and keeps billing with nobody using the app. Cost Guard looks for those paths in your code before your invoice does.
 
-**What it audits:** Workers and Pages Functions, Durable Objects (alarms, SQLite and key-value storage), D1, KV, R2, Queues, Workflows, Cron Triggers, Workers AI, AI Gateway, Browser Run, Containers, Hyperdrive and Vectorize, plus loops that call metered third-party APIs.
+**What it audits:** Workers and Pages Functions, Durable Objects (alarms, SQLite and key-value storage), D1, KV, R2, Queues, Workflows, Cron Triggers, Workers AI, AI Gateway, Browser Run, Containers, Hyperdrive, Vectorize and Email Service, plus loops that call metered third-party APIs, public routes anyone can use to drive cost (including `workers.dev` and preview URLs), and admin routes behind a single shared secret.
 
 **How it works:** the agent inventories your Wrangler configs and handlers, searches for known runaway patterns, traces each one from its entrypoint to the billable operations, checks whether real safeguards bound it, and explains how each affected service is billed.
 

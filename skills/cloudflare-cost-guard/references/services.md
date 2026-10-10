@@ -116,6 +116,28 @@ Mechanisms summarized from Cloudflare's developer documentation, checked 2026-10
 - **Runaway shapes:** re-embedding and re-upserting the whole corpus on a schedule, query per item in loops.
 - Docs: [Workers pricing page, Vectorize section](https://developers.cloudflare.com/workers/platform/pricing/).
 
+## Email Service (`send_email`)
+
+- **Billed on:** outbound emails. Workers Paid includes a monthly allowance, then charges per 1,000 emails. Sending to arbitrary recipients is not available on the Free plan; sends to verified destination addresses are free on all plans. Hard-bounced emails count; emails rejected at the API do not. Inbound Email Routing has no per-email charge, but Email Workers are billed as Workers.
+- **Config:** `send_email` bindings (`destination_address`, `allowed_destination_addresses`).
+- **Code signals:** `env.<EMAIL>.send(`, `EmailMessage`, `mimetext`, `async email(message, env)` handlers, `message.forward(`, `message.reply(`, auth libraries sending verification or magic-link emails.
+- **Runaway shapes:** unauthenticated sign-up, password-reset or magic-link routes that send mail per request (anyone can make you send mail to any address), retries around `send()`, email per item in cron fan-out, inbound email handlers that reply or forward in a loop (two auto-responders replying to each other).
+- Docs: [pricing](https://developers.cloudflare.com/email-service/platform/pricing/), [limits](https://developers.cloudflare.com/email-service/platform/limits/).
+
+## Workers Rate Limiting binding (`ratelimits`)
+
+- **What it is:** a safeguard, not a cost driver. `env.<LIMITER>.limit({ key })` returns `success: false` once a key exceeds `limit` calls per `period` (10 or 60 seconds).
+- **Limits of the safeguard:** counters are per Cloudflare location and eventually consistent; Cloudflare describes it as permissive and not an accounting system, and advises against keying on IP addresses or locations. A limit keyed by IP or applied per location does not cap total volume from a distributed client. Its pricing is not documented on the binding page.
+- **Code signals:** `ratelimits` in config, `.limit({ key` in code. Check what the key is and that the check runs before the billable work.
+- Docs: [Rate Limiting binding](https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/).
+
+## Public exposure (`routes`, `workers_dev`, `preview_urls`)
+
+- **Not billed itself,** but it decides who can drive cost. A Worker can be reachable on custom domains or routes in your zone, on its `workers.dev` URL, and on preview URLs.
+- `workers_dev` defaults to `true` when the config has no `routes`, and `false` when it has routes and no explicit setting. A dashboard change is overwritten by the next deploy unless the config sets it. `preview_urls`, if unset, follows `workers_dev` for new Workers. Disabling `workers_dev` does not disable preview URLs.
+- `workers.dev` and preview URLs are not hostnames in your zone, so WAF custom rules, rate-limiting rules and other zone security settings do not apply to them. Cloudflare Access can protect them. Any finding whose recommendation relies on a zone rule must mention this.
+- Docs: [Wrangler configuration](https://developers.cloudflare.com/workers/wrangler/configuration/), [workers.dev](https://developers.cloudflare.com/workers/configuration/routing/workers-dev/).
+
 ## Third-party metered APIs
 
 Cloudflare does not bill these, but Workers code often amplifies them: LLM providers, maps and geocoding, email and SMS senders, payment APIs, search APIs. Treat any loop, retry or fan-out that calls them like a billable Cloudflare operation and name the provider in the finding.

@@ -21,6 +21,9 @@ A search hit is only a lead. Confirm every pattern by tracing the path (SKILL.md
 - P13 Browser session or container left running
 - P14 Attacker-controlled object or instance count
 - P15 Failure path that does more billable work
+- P16 Public hostname that bypasses zone protections
+- P17 Data that grows without cleanup
+- P18 One credential unlocks a large fan-out
 
 ---
 
@@ -88,7 +91,7 @@ A search hit is only a lead. Confirm every pattern by tracing the path (SKILL.md
 
 - **Leads:** `\.put\(` (KV, R2, DO storage) or `INSERT`/`UPDATE` in middleware or the main `fetch` path; analytics counters; "last seen" timestamps.
 - **Real when:** every request (including bots and static-looking routes) causes a write, and writes are the expensive operation for that product (KV writes, D1 rows written).
-- **Starting severity:** Low to Medium, depending on traffic exposure and whether it is authenticated.
+- **Starting severity:** High when unauthenticated requests cause the write and the only bound is a per-IP or per-location rate limit, or none (anyone sets the volume; see the calibration rules in SKILL.md). Medium when authenticated or capped per user. Low when the write is rare or on an internal route.
 
 ## P11 Workflow re-creation and unlimited step retries
 
@@ -119,3 +122,23 @@ A search hit is only a lead. Confirm every pattern by tracing the path (SKILL.md
 - **Leads:** `catch` blocks that call `fetch`, `send`, `put`, `AI.run`, `setAlarm(Date.now())`; logging full payloads on every error; error reporting per item in loops.
 - **Real when:** a persistent failure (bad credentials, downstream outage, poison message) makes each attempt cost more than success, and attempts repeat.
 - **Starting severity:** Medium; raise it if the failure path re-triggers itself.
+
+## P16 Public hostname that bypasses zone protections
+
+- **Leads:** a Wrangler config with no `routes` and no `workers_dev`, or `workers_dev: true`; `preview_urls: true`; recommendations or docs in the repo that rely on WAF or zone rate-limiting rules.
+- **Real when:** an expensive route is protected only by zone rules (WAF, rate-limiting rules, bot settings) while the same Worker answers on `workers.dev` or a preview URL, where those rules do not apply.
+- **False positives:** `workers_dev: false` and `preview_urls: false` set in config; protection implemented in the Worker itself; Cloudflare Access on those hostnames (an account setting to verify).
+- **Starting severity:** raises an existing externally drivable finding by one level when its only protection is a zone rule; on its own, Low with a dashboard checklist item.
+
+## P17 Data that grows without cleanup
+
+- **Leads:** tables or prefixes written per request or per sign-in (`sessions`, `verification`, `tokens`, `request_log`, `rate_limit`, `events`, `audit`) with no `DELETE`, TTL (`expirationTtl`), R2 lifecycle rule, or cleanup cron anywhere in the repo.
+- **Real when:** a scheduled job or hot query scans that data, or storage is billed, so cost grows every day with no code change.
+- **Starting severity:** Low; Medium when a scheduled job scans the growing data; raise further when combined with P7 or P9.
+
+## P18 One credential unlocks a large fan-out
+
+- **Leads:** admin, debug, metrics or maintenance routes (`/admin`, `/dev`, `/internal`, `/metrics`, `/backfill`) checked with a single static secret (`env.ADMIN_TOKEN`, a shared header), especially routes that loop over Durable Objects, rows or objects.
+- **Real when:** the route does bulk work per call (touches many objects, re-processes data, calls AI) with no per-call cap, so a leaked or misused token makes each call expensive and repeatable.
+- **False positives:** per-call caps independent of auth, per-user credentials with their own limits, routes not deployed to production.
+- **Starting severity:** Medium; High if the route is also on a hostname without other protection and the per-call work is large.

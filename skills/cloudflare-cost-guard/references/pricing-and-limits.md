@@ -135,6 +135,19 @@ Source: [Hyperdrive pricing](https://developers.cloudflare.com/hyperdrive/platfo
 
 Source: [Workers pricing, Vectorize section](https://developers.cloudflare.com/workers/platform/pricing/). Paid: 50M queried dimensions/month then $0.01/M; 10M stored dimensions then $0.05 per 100M.
 
+## Email Service
+
+Source: [Email Service pricing](https://developers.cloudflare.com/email-service/platform/pricing/) (page updated 2026-06-09), [limits](https://developers.cloudflare.com/email-service/platform/limits/).
+
+- Free: sending to arbitrary recipients not available. Paid: 3,000 emails/month included, then $0.35 per 1,000.
+- Sends to verified destination addresses are free and do not count. Hard bounces count; API rejections do not.
+- Up to 50 recipients per email (to + cc + bcc). New accounts get a conservative daily quota that Cloudflare adjusts; no fixed number is published.
+- Inbound Email Routing: no per-email charge; Email Workers billed as Workers.
+
+## Workers Rate Limiting binding
+
+Source: [Rate Limiting binding](https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/). `period` must be 10 or 60 seconds. Counters are per location and eventually consistent. The page does not document pricing.
+
 ## Account-level controls
 
 Source: [Budget alerts](https://developers.cloudflare.com/billing/manage/budget-alerts/), [usage-based billing](https://developers.cloudflare.com/billing/understand/usage-based-billing/) (pages updated 2026-05-29).

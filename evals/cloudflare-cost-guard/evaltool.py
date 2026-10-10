@@ -117,13 +117,18 @@ def same_file(reported: str, expected: str) -> bool:
 
 
 def near(finding: dict, anchor: dict) -> bool:
-    try:
-        line = int(finding.get("line") or 0)
-    except (TypeError, ValueError):
-        line = 0
-    return same_file(str(finding.get("file", "")), anchor["file"]) and (
-        line == 0 or abs(line - anchor["line"]) <= LINE_WINDOW
-    )
+    """True if the finding's main location or any listed location is near the anchor."""
+    places = [finding] + [p for p in finding.get("locations") or [] if isinstance(p, dict)]
+    for place in places:
+        try:
+            line = int(place.get("line") or 0)
+        except (TypeError, ValueError):
+            line = 0
+        if same_file(str(place.get("file", "")), anchor["file"]) and (
+            line == 0 or abs(line - anchor["line"]) <= LINE_WINDOW
+        ):
+            return True
+    return False
 
 
 def grade(case_dir: Path, report_text: str) -> tuple[bool, list[str]]:
@@ -203,6 +208,13 @@ def self_test() -> list[str]:
         ok, notes = grade(case_dir, synthetic_report(perfect))
         if not ok:
             errors.append(f"{case_dir.name}: perfect report failed: {notes}")
+        via_locations = [
+            {**f, "file": "elsewhere.ts", "line": 1, "locations": [{"file": f["file"], "line": f["line"]}]}
+            for f in perfect
+        ]
+        ok, notes = grade(case_dir, synthetic_report(via_locations))
+        if not ok:
+            errors.append(f"{case_dir.name}: report matching only via locations failed: {notes}")
         if case["kind"] == "vulnerable":
             ok, _ = grade(case_dir, synthetic_report([]))
             if ok:

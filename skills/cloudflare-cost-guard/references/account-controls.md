@@ -28,6 +28,8 @@ Mark each row for the user to check in the Cloudflare dashboard:
 - [ ] Queue backlog and retry counts; dead letter queue size.
 - [ ] Workers AI, Browser Run and Containers usage graphs for steady consumption at night or weekends.
 - [ ] AI Gateway rate limits and caching configured where AI calls go through a gateway.
+- [ ] `workers.dev` and preview URLs are disabled for production Workers, or protected by Cloudflare Access. Zone WAF and rate-limiting rules do not apply to them, and a dashboard toggle is undone by the next deploy unless the Wrangler config sets `workers_dev = false`.
+- [ ] Email Service sending volume and daily quota, if `send_email` is used.
 - [ ] Workers Logs sampling (`head_sampling_rate`) and log volume.
 - [ ] Who receives billing email, and whether someone acts on it.
 

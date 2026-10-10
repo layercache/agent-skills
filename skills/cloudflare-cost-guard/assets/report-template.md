@@ -2,26 +2,28 @@
 
 <!-- Fill every section. Remove these comments. Keep headings in this order. -->
 
-**Repository:** <name or path> · **Commit:** <short SHA if available> · **Date:** <YYYY-MM-DD>
-**Pricing data:** <"confirmed at developers.cloudflare.com on YYYY-MM-DD" or "bundled snapshot dated 2026-10-10, not re-verified">
+**Repository:** <name or path> · **Branch:** <branch> · **Commit:** <short SHA if available> · **Date:** <YYYY-MM-DD>
+**Pricing data:** <one of: "all figures confirmed at developers.cloudflare.com on YYYY-MM-DD" · "bundled snapshot dated 2026-10-10, not re-verified" · "mixed: confirmed on YYYY-MM-DD for <products>; snapshot for <products>">
 
 ## Executive summary
 
 - **Overall assessed risk:** <Critical | High | Medium | Low | No material risk found>
-- **Autonomous runaway paths found:** <Yes (n) | No>
+- **Autonomous runaway paths found:** <Yes (n) | No> <!-- autonomous findings rated High or Critical -->
 - **Findings:** <n> Critical · <n> High · <n> Medium · <n> Low
 - **Services detected:** <comma-separated list>
 - **Most important actions:**
   1. <action>
   2. <action>
   3. <action>
-- **Scope and limitations:** <what was reviewed, exclusions applied, what could not be verified>
+- **Scope and limitations:** <branch and commit reviewed, exclusions applied, out-of-scope repos or Workers, what could not be verified>
 
 ## Service inventory
 
 | Service | Configured in | Used by (file:line) | Triggered by | Billable on |
 | ------- | ------------- | ------------------- | ------------ | ----------- |
 | <Durable Objects> | <wrangler.jsonc:12> | <src/room.ts:40> | <user request / cron / alarm / queue / self> | <requests, duration, SQLite rows> |
+
+**Public entry points:** <each Worker's custom domains, routes, `workers.dev` (on/off/default), preview URLs, and which routes need authentication>
 
 ## Findings
 
@@ -33,9 +35,10 @@
 | ----- | ------ |
 | Severity | <Critical/High/Medium/Low> |
 | Confidence | <High/Medium/Low> |
-| Service | <product> |
+| Service | <product, or several> |
 | Location | <path:line> (and other path:line entries on the path) |
 | Trigger | <how it starts: request to /route, cron "* * * * *", alarm, queue message> |
+| Exposure | <autonomous / externally drivable / credential-gated (which credential)> |
 | Call path | <entrypoint → function → billable operation> |
 | Scenario | <how usage runs away, what it grows with, whether it continues without users> |
 | Existing safeguards | <verified in code with file:line, or "none found"> |
@@ -47,6 +50,10 @@
 <!-- Notable leads you dismissed, with one line each on why they are bounded. -->
 
 - <path:line>: <why it is bounded>
+
+## Plan assumptions
+
+<Which plan the code or docs indicate, or "unknown". For findings whose impact differs, say what happens on Free (errors past a daily limit, or not available) and on Workers Paid (billed).>
 
 ## Manual Cloudflare dashboard checklist
 
@@ -79,6 +86,8 @@ Any fix for these findings changes exactly the code paths that can generate cost
 
 ## Machine-readable summary
 
+<!-- "file"/"line" is the main location; "locations" lists every location on the path. "autonomous" is true when the path runs without any user or external request. "autonomous_runaway_paths" is true only if some finding is autonomous and rated High or Critical. -->
+
 ```json
 {
   "cost_guard_report": 1,
@@ -90,9 +99,12 @@ Any fix for these findings changes exactly the code paths that can generate cost
       "id": "CG-1",
       "severity": "<Critical|High|Medium|Low>",
       "confidence": "<High|Medium|Low>",
-      "service": "<service>",
-      "file": "<path relative to repo root>",
+      "service": "<primary service>",
+      "services": ["<every service involved>"],
+      "file": "<primary path relative to repo root>",
       "line": 0,
+      "locations": [{ "file": "<path>", "line": 0 }],
+      "exposure": "<autonomous|external|credential>",
       "autonomous": false,
       "title": "<short title>"
     }

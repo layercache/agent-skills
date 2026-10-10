@@ -1,10 +1,10 @@
 ---
 name: cloudflare-cost-guard
-description: Read-only audit of a Cloudflare codebase for runaway usage and surprise billing risk. Finds self-rescheduling Durable Object alarms, queue re-enqueue loops, recursive Worker fetches, unbounded retries, D1/KV/R2 write amplification, Workers AI and Browser Run loops, and container lifecycle gaps, then reports evidence-backed findings with file and line references plus a dashboard checklist. Use when the user asks about Cloudflare costs, bills, overages, runaway Workers, Durable Object alarms, queue retries, or wants a cost, spend or billing-risk audit of a Workers, Pages, D1, R2, Queues or Workflows project. Never modifies code, deploys, or calls Cloudflare.
+description: Read-only audit of a Cloudflare codebase for runaway usage and surprise billing risk. Finds self-rescheduling Durable Object alarms, queue re-enqueue loops, recursive Worker fetches, unbounded retries, D1/KV/R2 write amplification, Workers AI, Browser Run and email loops, unauthenticated cost amplification, and container lifecycle gaps, then reports evidence-backed findings with file and line references plus a dashboard checklist. Use when the user asks about Cloudflare costs, bills, overages, runaway Workers, Durable Object alarms, queue retries, or wants a cost, spend or billing-risk audit of a Workers, Pages, D1, R2, Queues or Workflows project. Never modifies code, deploys, or calls Cloudflare.
 license: MIT
 metadata:
   author: layercache
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
 # Cloudflare Cost Guard
@@ -21,20 +21,27 @@ You are in read-only mode from the first step to the last. You must not:
 - Run `wrangler` commands that deploy, publish, migrate, tail, or start dev servers; run project scripts, tests, builds, or package installs.
 - Call production or preview endpoints, trigger cron/alarms/queues/workflows, or make any request that could incur Cloudflare or third-party charges.
 - Open `.dev.vars`, `.env*`, or other secret files beyond noting that they exist. Never print secret values.
+- Run Git commands that use the network (`fetch`, `pull`, `clone`, `ls-remote`) or that change the checkout (`checkout`, `switch`, `stash`, `reset`).
 
-You may read source, configuration, dependency manifests and local Git metadata (`git log`, `git blame`) and use search tools. If network access is available, you may read public documentation at `developers.cloudflare.com` to confirm current pricing and limits; nothing else.
+You may read source, configuration, dependency manifests and installed dependency source, use search tools, and run local read-only Git commands (`status`, `log`, `show`, `blame`, `diff`, `branch`). If network access is available, you may read public documentation at `developers.cloudflare.com` to confirm current pricing and limits; nothing else.
 
 If dynamic testing would help, list it under "Recommended follow-up" in the report as something the user can choose to do later in a non-production account. Do not do it.
 
 ## Scope
 
-Search the whole repository, including every Worker in a monorepo. Skip:
+**What you audit:** the working tree of the repository the user pointed you at, as currently checked out, including every Worker in a monorepo. Record the branch and commit (`git status`, `git log -1`) in the report. Other repositories in the workspace, other branches, open pull requests and remote state are out of scope unless the user names them. When code in scope calls something out of scope (a service binding to a Worker defined elsewhere, an `ops` repository that deploys crons), list it under evidence gaps.
 
-- Dependencies and build output: `node_modules/`, `.wrangler/`, `dist/`, `build/`, `.next/`, `.open-next/`, `.svelte-kit/`, `.output/`, `vendor/`, `target/`, `coverage/`.
+**What counts as deployed code:** anything reachable from a Wrangler `main` entry, Pages Functions (`functions/**`, `_worker.js`), framework adapter output sources, and classes those configs bind. Audit that fully. For code that never deploys (`test/`, `__tests__/`, `*.test.*`, `docs/`, `examples/`, `fixtures/`, storybook), do not report findings, but do note it if a script there is run against production by CI or a cron outside Cloudflare.
+
+**Skip entirely:**
+
+- Build output: `.wrangler/`, `dist/`, `build/`, `.next/`, `.open-next/`, `.svelte-kit/`, `.output/`, `target/`, `coverage/`.
 - Generated types such as `worker-configuration.d.ts`.
 - Installed agent skills, including this one: `.claude/`, `.agents/`, `.codex/`, `.cursor/`, `.opencode/`, `.windsurf/`, and any folder whose root contains a `SKILL.md`.
 
-State the exclusions you applied in the report.
+**Dependencies** (`node_modules/`, `vendor/`): do not search them broadly. When a traced path depends on a library's behavior (an auth library's rate limiting, an ORM's batching, a queue helper's retries), read that library's installed source for that one question and cite the file and version from the lockfile. If it is not installed, record the version from the lockfile and mark the protection **unknown**; do not install anything.
+
+State the scope, branch, commit and exclusions in the report.
 
 ## Procedure
 
@@ -43,17 +50,17 @@ Work through the phases in order. Keep notes of every file and line you rely on;
 ### Phase A: Discover the infrastructure
 
 1. Find every Wrangler config: `wrangler.toml`, `wrangler.json`, `wrangler.jsonc` (including per-environment blocks under `env`). Also check `functions/` and `_worker.js` for Pages Functions, and framework adapters (`@cloudflare/next-on-pages`, `@opennextjs/cloudflare`, `@astrojs/cloudflare`, SvelteKit/Remix/Nuxt Cloudflare adapters).
-2. From each config, record bindings and triggers: `durable_objects`, `migrations` (`new_sqlite_classes` vs `new_classes`), `d1_databases`, `kv_namespaces`, `r2_buckets`, `queues.producers`/`queues.consumers` (with `max_retries`, `dead_letter_queue`, `max_batch_size`, `retry_delay`), `workflows`, `triggers.crons`, `ai`, `browser`, `containers`, `hyperdrive`, `services`, `vectorize`, `ratelimits`, `limits` (`cpu_ms`, `subrequests`), `observability`.
+2. From each config, record bindings and triggers: `durable_objects`, `migrations` (`new_sqlite_classes` vs `new_classes`), `d1_databases`, `kv_namespaces`, `r2_buckets`, `queues.producers`/`queues.consumers` (with `max_retries`, `dead_letter_queue`, `max_batch_size`, `retry_delay`), `workflows`, `triggers.crons`, `ai`, `browser`, `containers`, `hyperdrive`, `services`, `vectorize`, `ratelimits`, `send_email`, `limits` (`cpu_ms`, `subrequests`), `observability`, and public exposure: `routes`, `workers_dev`, `preview_urls`. `workers_dev` defaults to `true` when a config has no `routes`; a `workers.dev` URL or preview URL is reachable outside your zone, so zone WAF and rate-limiting rules do not cover it.
 3. Find the handlers each Worker exports: `fetch`, `scheduled`, `queue`, `email`, `tail`, Durable Object classes (`alarm`, `webSocketMessage`, `fetch`, RPC methods), `WorkflowEntrypoint.run`, `WorkerEntrypoint` RPC methods, Container classes.
 4. Check `package.json` (and `pyproject.toml`, `Cargo.toml` for Python and Rust Workers) for relevant SDKs: `agents`, `@cloudflare/puppeteer`, `@cloudflare/playwright`, `@cloudflare/containers`, `openai`, `@anthropic-ai/sdk`, ORMs (`drizzle-orm`, `kysely`, `prisma`), third-party metered APIs.
 
-Produce the **service inventory**: each service, where it is configured, which handlers use it, and whether it runs on user requests, on a schedule, or by itself. See [references/services.md](references/services.md) for what to look for per service.
+Produce the **service inventory**: each service, where it is configured, which handlers use it, whether it runs on user requests, on a schedule, or by itself, and which public hostnames (custom domains, routes, `workers.dev`, preview URLs) reach each Worker. See [references/services.md](references/services.md) for what to look for per service.
 
 If no Cloudflare services are found, say so, list what you searched, and stop.
 
 ### Phase B: Find candidate runaway paths
 
-For each service in the inventory, search for the patterns in [references/runaway-patterns.md](references/runaway-patterns.md). Prioritize anything that runs without a user request: alarms, crons, queue consumers, workflows, self-calls, containers and browser sessions that stay alive.
+For each service in the inventory, search for the patterns in [references/runaway-patterns.md](references/runaway-patterns.md). Prioritize anything that runs without a user request (alarms, crons, queue consumers, workflows, self-calls, containers and browser sessions that stay alive), then public routes anyone can call that write data or call expensive services, then admin or internal routes guarded by a single shared secret.
 
 For Durable Object alarms, always read [references/durable-object-alarms.md](references/durable-object-alarms.md); the retry and overwrite semantics decide most alarm findings.
 
@@ -66,7 +73,11 @@ For each lead:
 1. Trace from the entrypoint (handler) through every function it calls to each billable operation. Follow service bindings, RPC calls, queue sends, workflow creation and `fetch` calls into other Workers in the repo.
 2. Write down the chain, for example: `scheduled` (every minute) → `syncAll()` → for each row in `users` (no LIMIT) → `env.AI.run()` + `env.BUCKET.put()`.
 3. Estimate the multiplier qualitatively: fan-out per step × retries × depth × frequency. Note what it grows with (time, data size, number of users, failures).
-4. Decide whether the path can **continue without user activity** (self-rescheduling, re-enqueueing, crons, retries) and whether it is **bounded** (fixed counts, platform limits, data that stops growing).
+4. Classify the trigger:
+   - **Autonomous:** runs without any user or external request (alarms, crons, queue retries, re-enqueues, self-calls, workflows). This is what the per-finding `autonomous` flag means.
+   - **Externally drivable:** anyone on the internet can trigger it (no authentication, or authentication that anyone can obtain, such as free sign-up), so an attacker or bot sets the volume.
+   - **Credential-gated:** needs a secret. Ask what one leaked or misused credential could cost: a single static admin token that unlocks a large fan-out is a finding even though outsiders cannot call it.
+5. Decide whether the path is **bounded** per invocation (fixed counts, platform limits) and in total (data that stops growing, invocations that stop).
 
 A loop over a fixed or small collection, a one-off migration script, or a path whose every step is capped is not a finding. Say why you dismissed notable leads in the report's "Reviewed and not flagged" section.
 
@@ -79,6 +90,12 @@ For each remaining path, check the safeguards listed in [references/safeguards.m
 - It is not only a comment, a TODO, a README promise, or a config value that the code never reads.
 
 Record which safeguards exist and where (file:line), and which are missing.
+
+Then check the **global safeguards** that no single path shows, and report each missing one as a finding (usually Low or Medium, higher if it worsens a finding above):
+
+- A kill switch that every autonomous handler (alarm, cron, queue consumer, workflow) reads before doing billable work, and that stops rescheduling.
+- Retention or cleanup for tables, KV prefixes, R2 prefixes and Durable Object storage that grow with traffic (sessions, verification tokens, request logs, rate-limit counters, events). Growth makes every scan and every scheduled job more expensive over time.
+- Protection for public hostnames that bypass the zone (`workers.dev`, preview URLs), and rate limits keyed by user or API key on expensive public routes.
 
 ### Phase E: Assess billing exposure
 
@@ -100,6 +117,9 @@ Confidence is **High** when you traced the full path in code, **Medium** when on
 
 Calibration rules:
 
+- **Autonomous and unbounded** paths are the only ones that start at Critical.
+- **Externally drivable** paths are rated by what each request costs and whether anything caps total volume. Rate High when a request that anyone can send causes writes, fan-out, or a call to an expensive service (AI, Browser Run, email, a metered API) and the only bound is a per-IP or per-location limit, or none. Per-location and per-IP limits (including the Workers Rate Limiting binding keyed by IP) are partial bounds: a distributed client avoids them. They lower a finding to Medium only when combined with authentication or a per-user cap.
+- **Credential-gated** paths are rated by the worst case if the credential leaks: Medium when one static secret unlocks a large fan-out or bulk operation with no per-call cap, Low when the damage is small.
 - Never rate a finding Critical with Low confidence. Rate it High at most and list the gap under "Unverified risks".
 - A platform limit that caps one invocation (subrequests, the 16-call Worker loop limit, D1 queries per invocation, CPU time) bounds that invocation, not the number of invocations. It lowers severity only when nothing re-triggers the path.
 - Present hypothetical concerns as risks, not confirmed vulnerabilities.
@@ -108,11 +128,11 @@ Calibration rules:
 
 Fill in [assets/report-template.md](assets/report-template.md). Show the report in the conversation. Write it to a file only if the user gives a path; never write it into the audited repository unless the user names that location.
 
-Every finding needs: severity, confidence, service, location (file:line), trigger, scenario, existing safeguards, and a recommendation. Recommendations name the missing safeguard and where it belongs (for example "cap retries at a fixed count and send exhausted messages to a dead letter queue in `src/consumer.ts:42`"). Do not write replacement code.
+Every finding needs: severity, confidence, service(s), location(s) (file:line), trigger and exposure (autonomous, externally drivable, or credential-gated), scenario, existing safeguards, and a recommendation. Recommendations name the missing safeguard and where it belongs (for example "cap retries at a fixed count and send exhausted messages to a dead letter queue in `src/consumer.ts:42`"). Do not write replacement code.
 
 If no material problems are found, say so and list what was reviewed, without claiming the application is safe.
 
-Keep the template's "Before you change anything" section word for word, and finish with the machine-readable summary (a JSON block listing each finding's severity, confidence, service, file and line) so results can be compared between runs.
+Keep the template's "Before you change anything" section word for word, and finish with the machine-readable summary (the JSON block from the template) so results can be compared between runs. In it, `autonomous_runaway_paths` is true only when at least one finding is autonomous and rated High or Critical, matching the executive summary.
 
 ## After the audit
 
@@ -125,6 +145,6 @@ If the user then asks you to implement fixes, that is separate work outside this
 - **Large monorepos:** audit autonomous entrypoints (alarms, crons, queue consumers, workflows) in every Worker first, then request handlers. If you cannot cover everything, say what you skipped.
 - **Missing config:** if bindings are created in code or infrastructure-as-code (Terraform, Pulumi), audit those files the same way and note the uncertainty.
 - **Pages Functions:** treat `functions/**` handlers and `_worker.js` like Worker `fetch` handlers.
-- **Free plan:** several products return errors instead of billing when a free daily limit is reached. Note the plan as unknown unless the code or docs in the repo state it, and cover both cases.
+- **Free plan:** several products return errors instead of billing when a free daily limit is reached. Note the plan as unknown unless the code or docs in the repo state it, and use the report's "Plan assumptions" section to say how findings differ on Free and Paid.
 - **Third-party APIs:** flag loops that call metered external APIs (LLM providers, maps, email, SMS) even though Cloudflare does not bill them.
 - **Generated or minified code:** do not audit it line by line; audit its source if present.
