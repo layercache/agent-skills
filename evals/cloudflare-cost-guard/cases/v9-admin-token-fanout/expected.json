@@ -1,0 +1,16 @@
+{
+  "kind": "vulnerable",
+  "summary": "A single static admin token gates a route that wakes every Durable Object, with no per-call cap.",
+  "expected_findings": [
+    {
+      "id": "admin-token-fanout",
+      "service": "Durable Objects",
+      "file": "src/index.ts",
+      "contains": "const { results: rooms } = await env.DB.prepare(\"SELECT name FROM rooms\").all<{ name: string }>();",
+      "severity": ["Medium", "High"],
+      "autonomous": false,
+      "explanation": "/admin/stats is protected only by one static ADMIN_TOKEN. Each call reads every room from D1 with no LIMIT and wakes every GameRoom Durable Object (a DO request plus duration and SQLite rows read per room), so cost per call grows with the number of rooms. If the token leaks or a dashboard polls it, calls repeat with no rate limit or per-call cap."
+    }
+  ],
+  "must_not_flag": []
+}

@@ -1,0 +1,14 @@
+{
+  "kind": "safe",
+  "summary": "Cron with a D1-backed circuit breaker and kill switch, a 50-row batch limit and a timeout.",
+  "expected_findings": [],
+  "max_overall_severity": "Low",
+  "must_not_flag": [
+    {
+      "file": "src/index.ts",
+      "contains": "const res = await fetch(`${env.PRICING_API}/prices`, {",
+      "max_severity": "Low",
+      "reason": "The breaker and disabled flag are read from D1 before any API call, a missing row fails closed, each run makes at most one API call for at most 50 SKUs with a 15 s timeout, and failures open the breaker for an hour."
+    }
+  ]
+}

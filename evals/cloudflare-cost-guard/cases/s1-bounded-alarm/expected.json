@@ -1,0 +1,14 @@
+{
+  "kind": "safe",
+  "summary": "Alarm with a 30-second minimum interval, idle shutdown, persisted tick and failure limits.",
+  "expected_findings": [],
+  "max_overall_severity": "Low",
+  "must_not_flag": [
+    {
+      "file": "src/room.ts",
+      "contains": "await this.ctx.storage.setAlarm(Date.now() + MIN_INTERVAL_MS);\n  }",
+      "max_severity": "Low",
+      "reason": "The alarm stops when no members are active, after 20 idle ticks or 3 consecutive failures; state is in durable storage, the interval is a fixed 30 s, and room names are validated."
+    }
+  ]
+}

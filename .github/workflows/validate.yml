@@ -5,6 +5,9 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   validate:
     runs-on: ubuntu-latest
@@ -14,4 +17,37 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install skills-ref==0.1.1
-      - run: scripts/validate.sh
+      - name: Agent Skills spec
+        run: scripts/validate.sh
+      - name: Links and self-contained skills
+        run: python3 scripts/check_skills.py
+      - name: Eval fixtures
+        run: |
+          python3 evals/cloudflare-cost-guard/evaltool.py check
+          python3 evals/cloudflare-cost-guard/evaltool.py self-test
+
+  secrets:
+    runs-on: ubuntu-latest
+    env:
+      GITLEAKS_VERSION: "8.24.2"
+      GITLEAKS_SHA256: fa0500f6b7e41d28791ebc680f5dd9899cd42b58629218a5f041efa899151a8e
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      # The gitleaks CLI is MIT-licensed and free to run directly; the
+      # gitleaks GitHub Action needs a paid license for organization repos.
+      - name: Install gitleaks
+        run: |
+          curl -sSfL -o gitleaks.tar.gz "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  gitleaks.tar.gz" | sha256sum -c -
+          tar -xzf gitleaks.tar.gz -C /usr/local/bin gitleaks
+          rm gitleaks.tar.gz
+      - name: No secret files committed
+        run: |
+          if git ls-files | grep -E '(^|/)(\.env(\..*)?|\.dev\.vars(\..*)?|.*\.pem|.*\.key|id_rsa.*)$'; then
+            echo "Remove the files above: secret files must never be committed." >&2
+            exit 1
+          fi
+      - name: Scan history for secrets
+        run: gitleaks git --redact --verbose .

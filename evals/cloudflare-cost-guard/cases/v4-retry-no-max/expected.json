@@ -1,0 +1,16 @@
+{
+  "kind": "vulnerable",
+  "summary": "Geocoding retry loop with no maximum attempts against a metered third-party API.",
+  "expected_findings": [
+    {
+      "id": "unbounded-retry",
+      "service": "Workers",
+      "file": "src/geocode.ts",
+      "contains": "while (true) {",
+      "severity": ["High", "Medium"],
+      "autonomous": false,
+      "explanation": "geocode() retries every 100 ms forever on any non-2xx or exception, including permanent 4xx errors such as a bad key or quota exhaustion. Each request can make up to the per-invocation subrequest limit of metered geocoder calls, and the public route lets anyone trigger it repeatedly."
+    }
+  ],
+  "must_not_flag": []
+}

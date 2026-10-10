@@ -1,0 +1,18 @@
+{
+  "kind": "vulnerable",
+  "summary": "Agent loop calls Workers AI until the model says FINAL, with no iteration or token budget.",
+  "expected_findings": [
+    {
+      "id": "ai-loop-no-budget",
+      "service": "Workers AI",
+      "file": "src/index.ts",
+      "contains": "const result = (await env.AI.run(MODEL, { messages })) as { response: string };",
+      "severity": [
+        "High"
+      ],
+      "autonomous": false,
+      "explanation": "The while (true) loop only exits when the model replies FINAL. There is no maximum iteration count, token budget or max_tokens, and the message history grows every turn, so each call costs more Neurons than the last. Any unauthenticated request can start it, and a question the model never finalizes runs until the request is cut off."
+    }
+  ],
+  "must_not_flag": []
+}

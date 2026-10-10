@@ -1,0 +1,29 @@
+// ==== COST GUARD TEST FIXTURE: DO NOT DEPLOY ====
+// This is a deliberate counterexample for testing the cloudflare-cost-guard
+// skill. Cases in this folder contain code that can run up a Cloudflare bill
+// on purpose. Never deploy it, run it, or copy it into a real project.
+// ==== END OF TEST FIXTURE NOTICE ====
+
+{
+  "name": "webhook-relay",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-01",
+  "queues": {
+    "producers": [{ "binding": "DELIVERIES", "queue": "webhook-deliveries" }],
+    "consumers": [
+      {
+        "queue": "webhook-deliveries",
+        "max_batch_size": 10,
+        "max_retries": 5,
+        "dead_letter_queue": "webhook-deliveries-dlq",
+        "max_concurrency": 5
+      }
+    ]
+  },
+  "ratelimits": [
+    { "name": "ENQUEUE_LIMITER", "namespace_id": "1002", "simple": { "limit": 100, "period": 60 } }
+  ],
+  "d1_databases": [
+    { "binding": "DB", "database_name": "deliveries", "database_id": "00000000-0000-0000-0000-000000000000" }
+  ]
+}

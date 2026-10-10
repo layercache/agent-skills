@@ -1,0 +1,15 @@
+// ==== COST GUARD TEST FIXTURE: DO NOT DEPLOY ====
+// This is a deliberate counterexample for testing the cloudflare-cost-guard
+// skill. Cases in this folder contain code that can run up a Cloudflare bill
+// on purpose. Never deploy it, run it, or copy it into a real project.
+// ==== END OF TEST FIXTURE NOTICE ====
+
+{
+  "name": "presence-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-01",
+  "durable_objects": {
+    "bindings": [{ "name": "PRESENCE", "class_name": "PresenceRoom" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["PresenceRoom"] }]
+}

@@ -1,0 +1,15 @@
+// ==== COST GUARD TEST FIXTURE: DO NOT DEPLOY ====
+// This is a deliberate counterexample for testing the cloudflare-cost-guard
+// skill. Cases in this folder contain code that can run up a Cloudflare bill
+// on purpose. Never deploy it, run it, or copy it into a real project.
+// ==== END OF TEST FIXTURE NOTICE ====
+
+{
+  "name": "webhook-relay",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-01",
+  "queues": {
+    "producers": [{ "binding": "DELIVERIES", "queue": "webhook-deliveries" }],
+    "consumers": [{ "queue": "webhook-deliveries", "max_batch_size": 10 }]
+  }
+}
