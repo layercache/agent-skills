@@ -179,7 +179,11 @@ def grade(case_dir: Path, report_text: str) -> tuple[bool, list[str]]:
         matches = [f for f in findings if near(f, anchor)]
         if anchor["role"] == "expect":
             hits = [f for f in matches if f.get("severity") in anchor["severity"]]
-            if hits:
+            wrong_auto = [f for f in hits if bool(f.get("autonomous")) != bool(anchor["autonomous"])]
+            if hits and len(wrong_auto) == len(hits):
+                ok = False
+                notes.append(f"{anchor['id']}: autonomous should be {anchor['autonomous']}")
+            elif hits:
                 notes.append(f"found {anchor['id']} as {hits[0].get('severity')} ({hits[0].get('id')})")
             elif matches:
                 ok = False
@@ -236,7 +240,8 @@ def self_test() -> list[str]:
     for case_dir in sorted(p for p in CASES.iterdir() if p.is_dir()):
         case = load_case(case_dir)
         perfect = [
-            {"id": f"CG-{i}", "severity": a["severity"][0], "file": a["file"], "line": a["line"], "title": a["id"]}
+            {"id": f"CG-{i}", "severity": a["severity"][0], "file": a["file"], "line": a["line"],
+             "autonomous": a["autonomous"], "title": a["id"]}
             for i, a in enumerate(anchors(case_dir, case), 1)
             if a["role"] == "expect"
         ]
@@ -251,6 +256,10 @@ def self_test() -> list[str]:
         if not ok:
             errors.append(f"{case_dir.name}: report matching only via locations failed: {notes}")
         if case["kind"] == "vulnerable":
+            flipped = [{**f, "autonomous": not f["autonomous"]} for f in perfect]
+            ok, _ = grade(case_dir, synthetic_report(flipped))
+            if ok:
+                errors.append(f"{case_dir.name}: report with the wrong autonomous flag passed")
             ok, _ = grade(case_dir, synthetic_report([]))
             if ok:
                 errors.append(f"{case_dir.name}: empty report passed a vulnerable case")

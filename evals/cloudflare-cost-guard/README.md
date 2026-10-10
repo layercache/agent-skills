@@ -14,10 +14,10 @@ The fixtures are static source code. Nothing here deploys or calls Cloudflare, a
 | ---- | ---- | ---------------- | -------- |
 | `v1-do-alarm-reschedule` | Risky | Durable Object alarm that reschedules itself every second, and immediately on error | Critical |
 | `v2-queue-reenqueue` | Risky | Queue consumer that re-sends failed messages to its own queue | Critical or High |
-| `v3-recursive-fetch` | Risky | Worker that paginates by fetching its own public route with fan-out | High or Critical |
+| `v3-recursive-fetch` | Risky | Worker that paginates by fetching its own public route with fan-out | High |
 | `v4-retry-no-max` | Risky | Retry loop with no maximum around a metered geocoding API | High or Medium |
 | `v5-unbounded-d1-writes` | Risky | Every-minute cron that rewrites every row of a growing indexed D1 table | High or Critical |
-| `v6-ai-agent-loop` | Risky | Workers AI agent loop with no iteration or token budget | High or Critical |
+| `v6-ai-agent-loop` | Risky | Workers AI agent loop with no iteration or token budget | High |
 | `v7-background-fanout` | Risky | Every-5-minute cron doing KV, D1, AI, R2 and Queue work for every user | Medium to Critical |
 | `v8-unauthenticated-write` | Risky | Every public request writes one D1 row and one KV key with no retention, bounded only by a per-IP limit, on `workers.dev` by default | Medium |
 | `v9-admin-token-fanout` | Risky | One static admin token gates a route that wakes every Durable Object | Medium or High |

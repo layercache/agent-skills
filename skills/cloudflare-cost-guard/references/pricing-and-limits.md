@@ -101,7 +101,7 @@ Source: [Workers pricing, Workflows section](https://developers.cloudflare.com/w
 
 - Requests and CPU billed like Workers. Paid adds storage (1 GB-month included, then $0.20/GB-month) and steps (500,000/month included, then $0.80 per 100,000); step and storage billing start on a date Cloudflare announces separately.
 - Default step retries: 5, starting at 10 s, exponential, 10-minute timeout. Max 10,000 retries per step.
-- Paid: 10,000 steps per instance by default (up to 25,000); 50,000 concurrent running instances; 100 instance creations/s per Workflow.
+- Paid: 10,000 steps per instance by default (up to 25,000); 50,000 concurrent running instances; instance creation limited to 300/s per account and 100/s per Workflow.
 
 ## Workers AI
 

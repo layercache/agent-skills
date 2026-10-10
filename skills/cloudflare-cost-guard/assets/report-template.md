@@ -57,7 +57,7 @@
 
 <!-- One line each: kill switch for autonomous handlers, retention for growing data, public hostnames (`workers.dev`, preview URLs) and per-user limits. Also note here the linear cost of being public (about one cheap operation per request with retention in place) instead of filing it as a finding. -->
 
-- <safeguard>: <present at file:line / missing (CG-n) / missing, nothing it would protect>
+- <safeguard>: <present at file:line / missing (CG-n) / missing, defense in depth only (no finding) / missing, nothing it would protect>
 
 ## Reviewed and not flagged
 
@@ -103,7 +103,7 @@ Any fix for these findings changes exactly the code paths that can generate cost
 
 ## Machine-readable summary
 
-<!-- "file"/"line" is the main location; "locations" lists every location on the path. "autonomous" is true when the path keeps running with no further outside input. "exposure" is "n/a" only for a missing global safeguard filed on its own. "autonomous_runaway_paths" is true only if some finding is autonomous and rated High or Critical. "severity" is as deployed (the setting the repository config shows); "gated_by" is "<setting>=<value in the repository>", for example "AGENT_ENABLED=false" or "ADMIN_SECRET=not visible" (null when always live) and "severity_if_enabled" is the severity when that setting flips (null when not gated). "actions" mirrors the "Prioritized remediation" table: "fixes" is a list of finding IDs or "Global"; "when" is one of "Now", "Before launch", "Before enabling <X>", "Later". Omit "changes_since" entirely unless the user provided a previous report; then "new" and "fixed" list finding titles, "rerated" lists {"title", "from", "to", "reason"}. Service names: Workers, Pages Functions, Durable Objects, D1, KV, R2, Queues, Workflows, Cron Triggers, Workers AI, AI Gateway, Browser Run, Containers, Hyperdrive, Vectorize, Email Service, Workers Logs, or "Third-party: <provider>". Safeguards such as the Rate Limiting binding are not services. -->
+<!-- "file"/"line" is the main location; "locations" lists every location on the path. "autonomous" is true when the path keeps running with no further outside input. "exposure" is "n/a" only for a missing global safeguard filed on its own. "autonomous_runaway_paths" is true only if some finding is autonomous and rated High or Critical. "severity" is as deployed (the setting the repository config shows); "gated_by" is "<setting>=<value in the repository>", for example "AGENT_ENABLED=false" or "SYNC_ENABLED=not visible (secret)" (null when always live) and "severity_if_enabled" is the severity when that setting flips (null when not gated). "actions" mirrors the "Prioritized remediation" table: "fixes" is a list of finding IDs or "Global"; "when" is one of "Now", "Before launch", "Before enabling <X>", "Later". Omit "changes_since" entirely unless the user provided a previous report; then "new" and "fixed" list finding titles, "rerated" lists {"title", "from", "to", "reason"}, and "unchanged" counts findings present in both runs at the same severity. Service names: Workers, Pages Functions, Durable Objects, D1, KV, R2, Queues, Workflows, Cron Triggers, Workers AI, AI Gateway, Browser Run, Containers, Hyperdrive, Vectorize, Email Service, Workers Logs, or "Third-party: <provider>". Safeguards such as the Rate Limiting binding are not services. -->
 
 ```json
 {
@@ -141,7 +141,8 @@ Any fix for these findings changes exactly the code paths that can generate cost
     "previous_commit": "<short SHA from the previous report>",
     "new": ["<title>"],
     "fixed": ["<title>"],
-    "rerated": [{ "title": "<title>", "from": "<severity>", "to": "<severity>", "reason": "<one line>" }]
+    "rerated": [{ "title": "<title>", "from": "<severity>", "to": "<severity>", "reason": "<one line>" }],
+    "unchanged": 0
   }
 }
 ```

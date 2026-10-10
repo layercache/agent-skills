@@ -134,7 +134,7 @@ Mechanisms summarized from Cloudflare's developer documentation, checked 2026-10
 ## Public exposure (`routes`, `workers_dev`, `preview_urls`)
 
 - **Not billed itself,** but it decides who can drive cost. A Worker can be reachable on custom domains or routes in your zone, on its `workers.dev` URL, and on preview URLs.
-- `workers_dev` defaults to `true` when the config has no `routes`, and `false` when it has routes and no explicit setting. A dashboard change is overwritten by the next deploy unless the config sets it. `preview_urls`, if unset, follows `workers_dev` for new Workers. Disabling `workers_dev` does not disable preview URLs.
+- `workers_dev` defaults to `true` when the config has no `routes`, and `false` when it has routes and no explicit setting. A dashboard change is overwritten by the next deploy unless the config sets it. When a Worker has no preview URL setting yet, its initial value follows `workers_dev`; after that, omitting `preview_urls` leaves the existing setting unchanged, so setting `workers_dev = false` alone may leave preview URLs on. Only an explicit `preview_urls = false` in the config is evidence they are off.
 - `workers.dev` and preview URLs are not hostnames in your zone, so WAF custom rules, rate-limiting rules and other zone security settings do not apply to them. Cloudflare Access can protect them. Any finding whose recommendation relies on a zone rule must mention this.
 - Docs: [Wrangler configuration](https://developers.cloudflare.com/workers/wrangler/configuration/), [workers.dev](https://developers.cloudflare.com/workers/configuration/routing/workers-dev/).
 

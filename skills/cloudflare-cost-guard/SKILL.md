@@ -23,7 +23,7 @@ You are in read-only mode from the first step to the last. You must not:
 - Open `.dev.vars`, `.env*`, or other secret files beyond noting that they exist. Never print secret values.
 - Run Git commands that use the network (`fetch`, `pull`, `clone`, `ls-remote`) or that change the checkout (`checkout`, `switch`, `stash`, `reset`).
 
-You may read source, configuration, dependency manifests and installed dependency source, use search tools, and run local read-only Git commands (`status`, `log`, `show`, `blame`, `diff`, `branch`). If network access is available, you may read public documentation at `developers.cloudflare.com` to confirm current pricing and limits; nothing else.
+You may read source, configuration, dependency manifests and installed dependency source, use search tools, and run local read-only Git commands (`status`, `log`, `show`, `blame`, `diff`, `branch --show-current`, `branch --list`). If network access is available, you may read public documentation at `developers.cloudflare.com` to confirm current pricing and limits; nothing else.
 
 If dynamic testing would help, list it under "Recommended follow-up" in the report as something the user can choose to do later in a non-production account. Do not do it.
 
@@ -136,20 +136,20 @@ Calibration rules:
 
 Fill in [assets/report-template.md](assets/report-template.md). Start with its "At a glance" block (overall risk, autonomous paths, the cost of the worst finding at a stated rate, and a table of the top three actions) so the answer is readable before the detail.
 
-**Actions.** "Prioritized remediation" is one table of every action, most urgent first; its first three rows are the "At a glance" table, so the two never disagree. Each row names the action, the findings it fixes ("Global" when it is not part of any finding, such as a standalone global safeguard or dashboard check), where it belongs, and **When**:
+**Actions.** "Prioritized remediation" is one table of every action, most urgent first; its first three rows are the "At a glance" table, so the two never disagree. Each row names the action, the findings it fixes ("Global" when no finding covers it, such as a global safeguard listed without a finding or a dashboard check), where it belongs, and **When**:
 
-- "Now": a Critical or High finding that is live as deployed, or any autonomous runaway path.
+- "Before enabling X": any finding whose path is off as deployed and becomes risky only when setting X flips. This wins over the rules below.
+- "Now": a Critical or High finding that is live as deployed (every autonomous runaway path is one).
 - "Before launch": a Medium finding that is live as deployed, or a protection that matters once real traffic or users arrive (budget alerts, closing `workers.dev`). Assume the code is deployed unless the repository says otherwise.
-- "Before enabling X": a gated path that becomes risky only when setting X flips.
 - "Later": Low findings, tidy-up and defense in depth.
 
 With no findings, the table may hold "Global" actions, or a single row saying no action is needed. Severity says how bad a path is; When says how soon to act, and the two can differ (a path that would be High but sits behind a flag that is off is rated Low as deployed, with its action under "Before enabling X").
 
-**Changes since the last run.** Only when the user provides a previous report (its JSON summary is enough), add the "Changes since" line to "At a glance" and the `changes_since` object to the JSON: new findings, fixed findings, re-rated findings (old → new severity, with the reason), and how many are unchanged. Match findings by file and title, not by CG number, since numbers shift between runs. If no previous report is given, leave both out; do not search for one. Drop sections that would be empty, except "At a glance", "Findings" (write "None" when there are none), "Before you change anything" and the machine-readable summary.
+**Changes since the last run.** Only when the user provides a previous report (its JSON summary is enough), add the "Changes since" line to "At a glance" and the `changes_since` object to the JSON: new findings, fixed findings, re-rated findings (old → new severity, with the reason), and how many are unchanged (`unchanged` in the JSON). Match findings by file and title, not by CG number, since numbers shift between runs. If no previous report is given, leave both out; do not search for one. Drop sections that would be empty, except "At a glance", "Findings" (write "None" when there are none), "Before you change anything" and the machine-readable summary.
 
 Show the report in the conversation. If the full report is long (more than about 150 lines) and you can write files, you may instead save it to a file **outside** the audited repository (for example in the system temporary directory) and say where; the conversation must still show "At a glance", a one-line list of findings, "Before you change anything" and the machine-readable summary. Never write into the audited repository unless the user names that location.
 
-Every finding needs: severity, confidence, service(s), location(s) (file:line), trigger and exposure (autonomous, externally drivable, credential-gated, or n/a for a missing global safeguard), what it is gated by (or "none"), scenario, existing safeguards, cost at a stated rate, and a recommendation. Recommendations name the missing safeguard and where it belongs (for example "cap retries at a fixed count and send exhausted messages to a dead letter queue in `src/consumer.ts:42`"). Do not write replacement code.
+Every finding needs: severity, confidence, service(s), location(s) (file:line), trigger and exposure (autonomous, externally drivable, credential-gated, or n/a for a missing global safeguard; in the JSON these are `autonomous`, `external`, `credential` and `n/a`), what it is gated by (or "none"), scenario, existing safeguards, cost at a stated rate, and a recommendation. Recommendations name the missing safeguard and where it belongs (for example "cap retries at a fixed count and send exhausted messages to a dead letter queue in `src/consumer.ts:42`"). Do not write replacement code.
 
 If no material problems are found, say so and list what was reviewed, without claiming the application is safe.
 

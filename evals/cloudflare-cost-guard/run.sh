@@ -17,7 +17,8 @@ SKILL_DIR="$(cd "$HERE/../../skills/cloudflare-cost-guard" && pwd)"
 
 OUT="$HERE/results/$(date -u +%Y%m%dT%H%M%SZ)"
 mkdir -p "$OUT"
-PROMPT="$(sed "s|{{SKILL_DIR}}|$SKILL_DIR|g" "$HERE/prompt.md")"
+PROMPT_TEMPLATE="$(cat "$HERE/prompt.md")"
+PROMPT="${PROMPT_TEMPLATE//\{\{SKILL_DIR\}\}/"$SKILL_DIR"}"
 
 if [ "$#" -gt 0 ]; then cases=("$@"); else
   cases=(); for d in "$HERE"/cases/*/; do cases+=("$(basename "$d")"); done
@@ -32,6 +33,8 @@ for name in "${cases[@]}"; do
   python3 "$HERE/evaltool.py" strip "$work"
   for cfg in "$work"/wrangler.*.fixture; do mv "$cfg" "${cfg%.fixture}"; done
   git -C "$work" init -q
+  git -C "$work" add -A
+  git -C "$work" -c user.name=eval -c user.email=eval@example.invalid commit -qm "fixture"
   echo "running $name"
   # shellcheck disable=SC2086 # AGENT_CMD is intentionally word-split
   (cd "$work" && $AGENT_CMD "$PROMPT") > "$OUT/$name.md" || echo "agent exited non-zero for $name"
