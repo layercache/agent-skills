@@ -1,6 +1,6 @@
 # Layer Cache Agent Skills
 
-A public collection of [Agent Skills](https://docs.claude.com/en/docs/agents-and-tools/agent-skills/overview) maintained by [Layer Cache](https://github.com/layercache). Each skill is a self-contained folder of instructions, scripts and resources that an agent such as Claude loads on demand to do a specific task well.
+A public collection of [Agent Skills](https://agentskills.io) maintained by [Layer Cache](https://github.com/layercache). Each skill is a self-contained folder of instructions, scripts and resources that an agent loads on demand to do a specific task well. Every skill follows the open [Agent Skills specification](https://agentskills.io/specification), so it works in any agent that supports the format.
 
 ## Repository layout
 
@@ -15,7 +15,7 @@ A public collection of [Agent Skills](https://docs.claude.com/en/docs/agents-and
 ├── template/               # Starting point for a new skill
 │   └── SKILL.md
 ├── scripts/
-│   └── validate_skills.py  # Checks every skill's frontmatter
+│   └── validate.sh         # Validates every skill against the spec
 ├── CONTRIBUTING.md
 └── LICENSE
 ```
@@ -27,6 +27,8 @@ A public collection of [Agent Skills](https://docs.claude.com/en/docs/agents-and
 | _None yet_ | Add the first one with the steps in [CONTRIBUTING.md](CONTRIBUTING.md). |
 
 ## Using a skill
+
+Skills are plain folders, so installing one means putting its folder where your agent looks for skills. For example:
 
 **Claude Code:** copy (or symlink) a skill folder into `~/.claude/skills/` for personal use, or into `.claude/skills/` inside a project to share it with that repository.
 
@@ -43,7 +45,7 @@ cp -r agent-skills/skills/<skill-name> ~/.claude/skills/
 
 1. Copy `template/` to `skills/<skill-name>/`.
 2. Fill in the `name` and `description` frontmatter and write the instructions.
-3. Run `python3 scripts/validate_skills.py`.
+3. Run `scripts/validate.sh` (needs `pip install skills-ref`).
 4. Add a row to the table above and open a pull request.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for naming rules and writing guidance.
