@@ -48,6 +48,12 @@
 | Protection status | <verified in code / platform-enforced / account setting to verify / unknown> |
 | Recommendation | <the safeguard that is missing and where it belongs; no code> |
 
+## Global safeguards
+
+<!-- One line each: kill switch for autonomous handlers, retention for growing data, public hostnames (`workers.dev`, preview URLs) and per-user limits. Also note here the linear cost of being public (about one cheap operation per request with retention in place) instead of filing it as a finding. -->
+
+- <safeguard>: <present at file:line / missing (CG-n) / missing, nothing it would protect>
+
 ## Reviewed and not flagged
 
 <!-- Notable leads you dismissed, with one line each on why they are bounded. -->
