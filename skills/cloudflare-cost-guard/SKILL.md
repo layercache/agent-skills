@@ -74,8 +74,8 @@ For each lead:
 2. Write down the chain, for example: `scheduled` (every minute) → `syncAll()` → for each row in `users` (no LIMIT) → `env.AI.run()` + `env.BUCKET.put()`.
 3. Estimate the multiplier qualitatively: fan-out per step × retries × depth × frequency. Note what it grows with (time, data size, number of users, failures).
 4. Classify the trigger:
-   - **Autonomous:** runs without any user or external request (alarms, crons, queue retries, re-enqueues, self-calls, workflows). This is what the per-finding `autonomous` flag means.
-   - **Externally drivable:** anyone on the internet can trigger it (no authentication, or authentication that anyone can obtain, such as free sign-up), so an attacker or bot sets the volume.
+   - **Autonomous:** keeps running or repeating with no further outside input (alarms, crons, queue retries, re-enqueues, self-rescheduling workflows). A loop that one outside request starts but that then never ends on its own is autonomous. This is what the per-finding `autonomous` flag means.
+   - **Externally drivable:** anyone on the internet can trigger it (no authentication, authentication that anyone can obtain such as free sign-up, or an identity header the Worker trusts without verifying), so an attacker or bot sets the volume. A request that causes a large but finite burst (for example a self-fetch chain cut off by the 16-call loop limit) is externally drivable with an amplification factor, not autonomous.
    - **Credential-gated:** needs a secret. Ask what one leaked or misused credential could cost: a single static admin token that unlocks a large fan-out is a finding even though outsiders cannot call it.
 5. Decide whether the path is **bounded** per invocation (fixed counts, platform limits) and in total (data that stops growing, invocations that stop).
 
@@ -91,7 +91,7 @@ For each remaining path, check the safeguards listed in [references/safeguards.m
 
 Record which safeguards exist and where (file:line), and which are missing.
 
-Then check the **global safeguards** that no single path shows, and report each missing one as a finding (usually Low or Medium, higher if it worsens a finding above):
+Then check the **global safeguards** that no single path shows. When a missing one is already part of a finding above (for example no rate limit on the route that finding is about), add it to that finding's recommendation instead of filing it again. Otherwise report it as its own finding, usually Low, with `exposure` set to that of the paths it would protect and `autonomous` false. Skip safeguards that would protect nothing (for example `workers.dev` on a Worker with no `fetch` handler).
 
 - A kill switch that every autonomous handler (alarm, cron, queue consumer, workflow) reads before doing billable work, and that stops rescheduling.
 - Retention or cleanup for tables, KV prefixes, R2 prefixes and Durable Object storage that grow with traffic (sessions, verification tokens, request logs, rate-limit counters, events). Growth makes every scan and every scheduled job more expensive over time.
@@ -100,7 +100,7 @@ Then check the **global safeguards** that no single path shows, and report each 
 ### Phase E: Assess billing exposure
 
 1. For each affected service, explain how it is billed (requests, duration, rows, operations, neurons, browser hours, vCPU and memory time) using [references/services.md](references/services.md).
-2. Use [references/pricing-and-limits.md](references/pricing-and-limits.md) for numbers. It is a dated snapshot: if you can reach `developers.cloudflare.com`, confirm the figures you quote and say which source and date you used. Never invent a monetary estimate; when a figure is unverified, describe the mechanism instead.
+2. Use [references/pricing-and-limits.md](references/pricing-and-limits.md) for numbers. It is a dated snapshot: if you can reach `developers.cloudflare.com`, confirm the figures you quote and say which source and date you used. Express exposure as operation counts (requests per day, rows written per run). Quote a dollar figure only as a documented rate times a count, with the rate's source and date; never invent a total bill. When a figure is unverified or undocumented (for example whether a no-op `UPDATE` counts as a row written), describe the mechanism and list it as an evidence gap.
 3. Classify every protection as one of: **verified in code**, **platform-enforced** (documented Cloudflare limit), **account setting to verify manually**, or **unknown**.
 4. Read [references/account-controls.md](references/account-controls.md) and build the dashboard checklist. Budget alerts and usage notifications only send email; they do not stop usage. Workers Paid has no hard spending cap.
 
@@ -119,7 +119,9 @@ Calibration rules:
 
 - **Autonomous and unbounded** paths are the only ones that start at Critical.
 - **Externally drivable** paths are rated by what each request costs and whether anything caps total volume. Rate High when a request that anyone can send causes writes, fan-out, or a call to an expensive service (AI, Browser Run, email, a metered API) and the only bound is a per-IP or per-location limit, or none. Per-location and per-IP limits (including the Workers Rate Limiting binding keyed by IP) are partial bounds: a distributed client avoids them. They lower a finding to Medium only when combined with authentication or a per-user cap.
-- **Credential-gated** paths are rated by the worst case if the credential leaks: Medium when one static secret unlocks a large fan-out or bulk operation with no per-call cap, Low when the damage is small.
+- **Credential-gated** paths are rated by the worst case if the credential leaks: Medium when one static secret unlocks a large fan-out or bulk operation with no per-call cap, Low when each call is capped or the damage is small.
+- **One root cause, one finding.** When several problems belong to one loop or path (the loop, its error path, who can start it, what it writes), report one finding and list the contributing problems in its scenario. Separate findings are for paths that could be fixed independently.
+- **Confidence** is about whether the path exists as described. If the path is fully traced but its size depends on data you cannot see (table sizes, indexes, traffic), keep confidence High and say what the size depends on.
 - Never rate a finding Critical with Low confidence. Rate it High at most and list the gap under "Unverified risks".
 - A platform limit that caps one invocation (subrequests, the 16-call Worker loop limit, D1 queries per invocation, CPU time) bounds that invocation, not the number of invocations. It lowers severity only when nothing re-triggers the path.
 - Present hypothetical concerns as risks, not confirmed vulnerabilities.
@@ -132,7 +134,7 @@ Every finding needs: severity, confidence, service(s), location(s) (file:line), 
 
 If no material problems are found, say so and list what was reviewed, without claiming the application is safe.
 
-Keep the template's "Before you change anything" section word for word, and finish with the machine-readable summary (the JSON block from the template) so results can be compared between runs. In it, `autonomous_runaway_paths` is true only when at least one finding is autonomous and rated High or Critical, matching the executive summary.
+Keep the template's "Before you change anything" section word for word, and finish with the machine-readable summary (the JSON block from the template) so results can be compared between runs. In it, `autonomous_runaway_paths` is true only when at least one finding is autonomous and rated High or Critical, matching the executive summary. Name services with the names in the template's comment so runs compare cleanly.
 
 ## After the audit
 

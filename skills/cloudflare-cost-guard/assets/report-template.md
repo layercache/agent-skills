@@ -2,12 +2,12 @@
 
 <!-- Fill every section. Remove these comments. Keep headings in this order. -->
 
-**Repository:** <name or path> · **Branch:** <branch> · **Commit:** <short SHA if available> · **Date:** <YYYY-MM-DD>
+**Repository:** <name or path> · **Branch:** <branch, or "not a Git checkout"> · **Commit:** <short SHA, or "not a Git checkout"> · **Date:** <YYYY-MM-DD>
 **Pricing data:** <one of: "all figures confirmed at developers.cloudflare.com on YYYY-MM-DD" · "bundled snapshot dated 2026-10-10, not re-verified" · "mixed: confirmed on YYYY-MM-DD for <products>; snapshot for <products>">
 
 ## Executive summary
 
-- **Overall assessed risk:** <Critical | High | Medium | Low | No material risk found>
+- **Overall assessed risk:** <Critical | High | Medium | Low | None> <!-- the highest finding severity; "None" when there are no findings -->
 - **Autonomous runaway paths found:** <Yes (n) | No> <!-- autonomous findings rated High or Critical -->
 - **Findings:** <n> Critical · <n> High · <n> Medium · <n> Low
 - **Services detected:** <comma-separated list>
@@ -36,7 +36,7 @@
 | Severity | <Critical/High/Medium/Low> |
 | Confidence | <High/Medium/Low> |
 | Service | <product, or several> |
-| Location | <path:line> (and other path:line entries on the path) |
+| Location | <path:line> (and other path:line entries on the path; for a config-only finding, the line of the relevant key) |
 | Trigger | <how it starts: request to /route, cron "* * * * *", alarm, queue message> |
 | Exposure | <autonomous / externally drivable / credential-gated (which credential)> |
 | Call path | <entrypoint → function → billable operation> |
@@ -86,7 +86,7 @@ Any fix for these findings changes exactly the code paths that can generate cost
 
 ## Machine-readable summary
 
-<!-- "file"/"line" is the main location; "locations" lists every location on the path. "autonomous" is true when the path runs without any user or external request. "autonomous_runaway_paths" is true only if some finding is autonomous and rated High or Critical. -->
+<!-- "file"/"line" is the main location; "locations" lists every location on the path. "autonomous" is true when the path keeps running with no further outside input. "autonomous_runaway_paths" is true only if some finding is autonomous and rated High or Critical. Service names: Workers, Pages Functions, Durable Objects, D1, KV, R2, Queues, Workflows, Cron Triggers, Workers AI, AI Gateway, Browser Run, Containers, Hyperdrive, Vectorize, Email Service, Workers Logs, or "Third-party: <provider>". Safeguards such as the Rate Limiting binding are not services. -->
 
 ```json
 {

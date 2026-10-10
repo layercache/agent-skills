@@ -5,5 +5,14 @@
   "durable_objects": {
     "bindings": [{ "name": "PRESENCE", "class_name": "PresenceRoom" }]
   },
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["PresenceRoom"] }]
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["PresenceRoom"] }],
+  "routes": [{ "pattern": "presence.example.com", "custom_domain": true }],
+  "workers_dev": false,
+  "preview_urls": false,
+  "d1_databases": [
+    { "binding": "DB", "database_name": "accounts", "database_id": "00000000-0000-0000-0000-000000000000" }
+  ],
+  "ratelimits": [
+    { "name": "PER_USER", "namespace_id": "1004", "simple": { "limit": 60, "period": 60 } }
+  ]
 }
