@@ -1,0 +1,25 @@
+{
+  "kind": "safe",
+  "summary": "The same news pipeline with a unique source_id, an index on the pending predicate, progress marked by primary key and a direct legacy key lookup.",
+  "expected_findings": [],
+  "must_not_flag": [
+    {
+      "file": "src/jobs.ts",
+      "contains": "UPDATE articles SET embedded_at = ? WHERE id = ?",
+      "max_severity": "Low",
+      "reason": "Progress is written to the rows the job selected, so the pending set drains and each run does only new work."
+    },
+    {
+      "file": "src/jobs.ts",
+      "contains": "ON CONFLICT(source_id) DO NOTHING",
+      "max_severity": "Low",
+      "reason": "source_id is unique, so re-polling the feed adds only new items."
+    },
+    {
+      "file": "src/auth.ts",
+      "contains": "const legacy = await env.KEYS.get<Client>(`key:legacy:${await sha256(token)}`, \"json\");",
+      "max_severity": "Low",
+      "reason": "A legacy key costs one KV read, whatever the number of legacy keys."
+    }
+  ]
+}

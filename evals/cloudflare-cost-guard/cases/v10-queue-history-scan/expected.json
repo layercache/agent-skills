@@ -1,0 +1,18 @@
+{
+  "kind": "vulnerable",
+  "summary": "Per-account queue whose waiting rows are capped but whose history is not; every request and alarm scans the history.",
+  "expected_findings": [
+    {
+      "id": "history-scan-per-request",
+      "service": "Durable Objects",
+      "file": "src/save-queue.ts",
+      "contains": "`SELECT MIN(updated_at) AS oldest FROM deliveries WHERE state NOT IN (${WAITING_LIST})`",
+      "severity": [
+        "High"
+      ],
+      "autonomous": false,
+      "explanation": "pruneHistory() runs on every enqueue, cancel and list call and on every alarm. Its MIN(updated_at) query and the DELETE that follows filter on state and updated_at, which no index covers, so each call reads every delivered, cancelled and failed row kept for the 30-day retention window. MAX_WAITING_PER_ACCOUNT caps only waiting rows, so the cap does not bound what the query reads. The caller adds the rows, so rows read per request grow with the caller's own history up to retention times their rate. The DELETE on local_saves has the same problem."
+    }
+  ],
+  "must_not_flag": []
+}

@@ -1,10 +1,10 @@
 ---
 name: cloudflare-cost-guard
-description: Read-only audit of a Cloudflare codebase for runaway usage and surprise billing risk. Finds self-rescheduling Durable Object alarms, queue re-enqueue loops, recursive Worker fetches, unbounded retries, D1/KV/R2 write amplification, Workers AI, Browser Run and email loops, unauthenticated cost amplification, and container lifecycle gaps, then reports evidence-backed findings with file and line references plus a dashboard checklist. Use when the user asks about Cloudflare costs, bills, overages, runaway Workers, Durable Object alarms, queue retries, or wants a cost, spend or billing-risk audit of a Workers, Pages, D1, R2, Queues or Workflows project. Never modifies code, deploys, or calls Cloudflare.
+description: Read-only audit of a Cloudflare codebase for runaway usage and surprise billing risk. Finds self-rescheduling Durable Object alarms, queue re-enqueue loops, recursive Worker fetches, unbounded retries, D1/KV/R2 write amplification, hot queries over data that keeps growing, Workers AI, Browser Run and email loops, unauthenticated cost amplification, and container lifecycle gaps, then reports evidence-backed findings with file and line references plus a dashboard checklist. Use when the user asks about Cloudflare costs, bills, overages, runaway Workers, Durable Object alarms, queue retries, or wants a cost, spend or billing-risk audit of a Workers, Pages, D1, R2, Queues or Workflows project. Never modifies code, deploys, or calls Cloudflare.
 license: MIT
 metadata:
   author: layercache
-  version: "1.3.0"
+  version: "1.4.0"
 ---
 
 # Cloudflare Cost Guard
@@ -20,7 +20,7 @@ You are in read-only mode from the first step to the last. You must not:
 - Edit, create or delete files in the audited repository (including formatting, lockfiles or "quick fixes").
 - Run `wrangler` commands that deploy, publish, migrate, tail, or start dev servers; run project scripts, tests, builds, or package installs.
 - Call production or preview endpoints, trigger cron/alarms/queues/workflows, or make any request that could incur Cloudflare or third-party charges.
-- Open `.dev.vars`, `.env*`, or other secret files beyond noting that they exist. Never print secret values.
+- Open `.dev.vars`, `.env*`, or other secret files beyond noting that they exist. Never print secret values. Tracked example files that hold only placeholders (`.dev.vars.example`, `.env.example`, `.env.sample`) are not secret files, and you may read them.
 - Run Git commands that use the network (`fetch`, `pull`, `clone`, `ls-remote`) or that change the checkout (`checkout`, `switch`, `stash`, `reset`).
 
 You may read source, configuration, dependency manifests and installed dependency source, use search tools, and run local read-only Git commands (`status`, `log`, `show`, `blame`, `diff`, `branch --show-current`, `branch --list`). If network access is available, you may read public documentation at `developers.cloudflare.com` to confirm current pricing and limits; nothing else.
@@ -56,6 +56,8 @@ Work through the phases in order. Keep notes of every file and line you rely on;
 
 Produce the **service inventory**: each service, where it is configured, which handlers use it, whether it runs on user requests, on a schedule, or by itself, and which public hostnames (custom domains, routes, `workers.dev`, preview URLs) reach each Worker. See [references/services.md](references/services.md) for what to look for per service.
 
+Then build the **data growth inventory**: every SQL table (D1 and Durable Object SQLite, including tables created in code), KV key prefix, R2 key prefix and Durable Object key-value prefix the code writes. For each one, record what adds entries, what removes them, what caps the total, and which queries read it per request, per alarm, per cron run or per queue message. A cap counts only if it limits every entry in the table or prefix; a cap on some states (waiting, active, pending) leaves the rest uncapped. Fill in every row, even when the answer is "nothing"; Phase C uses this table.
+
 If no Cloudflare services are found, say so, list what you searched, and stop.
 
 ### Phase B: Find candidate runaway paths
@@ -78,6 +80,8 @@ For each lead:
    - **Externally drivable:** anyone on the internet can trigger it (no authentication, authentication that anyone can obtain such as free sign-up, or an identity header the Worker trusts without verifying), so an attacker or bot sets the volume. A request that causes a large but finite burst (for example a self-fetch chain cut off by the 16-call loop limit) is externally drivable with an amplification factor, not autonomous.
    - **Credential-gated:** needs a secret. Ask what one leaked or misused credential could cost: a single static admin token that unlocks a large fan-out is a finding even though outsiders cannot call it.
 5. Decide whether the path is **bounded** per invocation (fixed counts, platform limits) and in total (data that stops growing, invocations that stop).
+6. For every query the path runs per request, per alarm, per cron run or per queue message, name what bounds the rows it reads: a `LIMIT` the query can stop at, an index range that is itself capped, or a cap on the whole table from the data growth inventory. A cap on some row states does not bound the table: rows in other states (history, cancelled, delivered, expired) are still read unless an index on the filtered columns lets the query skip them. Judge index use from the schema; if you cannot tell, keep the lead as a finding with Medium confidence and recommend a query-plan check under "Recommended follow-up" (load the repository's schema into a throwaway SQLite database outside the repository and run `EXPLAIN QUERY PLAN` on that query). Do not run it yourself. When nothing bounds the read, the query costs more on every call as the data grows (pattern P19).
+7. For every repeating path (cron, alarm, queue consumer, workflow, self-rescheduling job), find the state that tells the next run what is left to do: a cursor, offset, "processed" flag or timestamp, expiry, refresh time or retry counter. Confirm the path writes that state where the next run reads it (same key, same column, same row identifier) after the work succeeds. A cursor, flag or deadline that is read but never moved forward, written to a different key or column, or matched on the wrong identifier is not a bound: every run repeats the same work. A scheduled time taken from stored state (`setAlarm(t)`, `delaySeconds`, `step.sleep`) can already be in the past, which means an immediate re-run.
 
 A loop over a fixed or small collection, a one-off migration script, or a path whose every step is capped is not a finding. Say why you dismissed notable leads in the report's "Reviewed and not flagged" section.
 
@@ -118,12 +122,15 @@ Confidence is **High** when you traced the full path in code, **Medium** when on
 Calibration rules:
 
 - **Autonomous and unbounded** paths are the only ones that start at Critical. A scheduled or self-repeating path whose cost per run grows with data or time, with nothing that stops the growth, counts as unbounded even when each single run is capped by a platform limit.
+  - A repeating path that never records its progress (Phase C step 7) is unbounded in time: rate it Critical when each run writes rows or objects or calls Workers AI, Browser Run, email or a metered API, and High when it only reads. A loop that stops only at a deadline days away is unbounded too; a deadline bounds it only when it is minutes away.
+  - A path that stays dormant until a date or window (a refresh window, an expiry, a backlog threshold) is rated by what happens once it opens. Say in the scenario that it is dormant and what starts it.
 - **Externally drivable** paths are rated by amplification: how many billable operations one outside request causes, and what each one costs. Almost every public API writes something, so a write alone is not High.
   - **High:** one request causes fan-out (many rows, many objects, many subrequests, a loop), or calls an expensive or reputational service (Workers AI or another LLM, Browser Run, a container, email or SMS to an address the caller chooses, a metered third-party API), and nothing caps total volume beyond a per-IP or per-location limit.
   - **Medium:** a small fixed number of cheap operations per request (a few D1 rows, a KV write) and the data persists or compounds (no retention, or a scheduled job scans it later).
   - **Low:** about one cheap operation per request with retention in place. This is the linear cost of being public: mention it under the global safeguards (budget alerts, `workers.dev`, zone rate limiting) instead of filing it as a finding.
   - Per-IP and per-location limits (including the Workers Rate Limiting binding keyed by IP) are partial bounds that a distributed client avoids; they do not lower the level. Authentication combined with a per-user cap lowers it by one.
   - Free self sign-up counts as "anyone", but rate the path by what one account unlocks, not by the fact that accounts can be created.
+  - **Cost per request that grows with the caller's own data:** when a query on the path reads entries the caller can keep adding (their history, devices, items) and nothing bounds the rows it reads (Phase C step 6), rate it High, because total cost grows with the square of that caller's activity. Authentication and a per-user rate limit do not lower it: they slow how fast the data grows, not what each request reads. Retention limits it only to retention period × allowed rate; state that ceiling in the cost line. When a cap on the whole table or a `LIMIT` bounds the read, rate the path by the rules above for a fixed number of operations.
 - **Credential-gated** paths are rated by the worst case if the credential leaks: Medium when one static secret unlocks a large fan-out or bulk operation with no per-call cap, Low when each call is capped or the damage is small.
 - **One root cause, one finding.** When several problems belong to one loop or path (the loop, its error path, who can start it, what it writes), report one finding and list the contributing problems in its scenario. Separate findings are for paths that could be fixed independently.
 - **Confidence** is about whether the path exists as described. If the path is fully traced but its size depends on data you cannot see (table sizes, indexes, traffic), keep confidence High and say what the size depends on.
@@ -147,7 +154,7 @@ With no findings, the table may hold "Global" actions, or a single row saying no
 
 **Changes since the last run.** Only when the user provides a previous report (its JSON summary is enough), add the "Changes since" line to "At a glance" and the `changes_since` object to the JSON: new findings, fixed findings, re-rated findings (old → new severity, with the reason), and how many are unchanged (`unchanged` in the JSON). Match findings by file and title, not by CG number, since numbers shift between runs. If no previous report is given, leave both out; do not search for one. Drop sections that would be empty, except "At a glance", "Findings" (write "None" when there are none), "Before you change anything" and the machine-readable summary.
 
-Show the report in the conversation. If the full report is long (more than about 150 lines) and you can write files, you may instead save it to a file **outside** the audited repository (for example in the system temporary directory) and say where; the conversation must still show "At a glance", a one-line list of findings, "Before you change anything" and the machine-readable summary. Never write into the audited repository unless the user names that location.
+Show the report in the conversation. If the full report is long (more than about 150 lines) and you can write files, you may instead save it to a file **outside** the audited repository (for example in the system temporary directory) and say where; the conversation must still show "At a glance", a one-line list of findings, "Before you change anything" and the machine-readable summary. If writing the file fails, show the full report in the conversation instead. Never write into the audited repository unless the user names that location.
 
 Every finding needs: severity, confidence, service(s), location(s) (file:line), trigger and exposure (autonomous, externally drivable, credential-gated, or n/a for a missing global safeguard; in the JSON these are `autonomous`, `external`, `credential` and `n/a`), what it is gated by (or "none"), scenario, existing safeguards, cost at a stated rate, and a recommendation. Recommendations name the missing safeguard and where it belongs (for example "cap retries at a fixed count and send exhausted messages to a dead letter queue in `src/consumer.ts:42`"). Do not write replacement code.
 

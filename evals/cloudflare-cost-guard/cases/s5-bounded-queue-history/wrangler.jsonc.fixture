@@ -1,0 +1,26 @@
+// ==== COST GUARD TEST FIXTURE: DO NOT DEPLOY ====
+// This is a deliberate counterexample for testing the cloudflare-cost-guard
+// skill. Cases in this folder contain code that can run up a Cloudflare bill
+// on purpose. Never deploy it, run it, or copy it into a real project.
+// ==== END OF TEST FIXTURE NOTICE ====
+
+{
+  "name": "savebox-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-01",
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [{ "pattern": "api.savebox.example", "custom_domain": true }],
+  "d1_databases": [
+    { "binding": "DB", "database_name": "savebox", "database_id": "00000000-0000-0000-0000-000000000000" }
+  ],
+  "durable_objects": {
+    "bindings": [{ "name": "SAVE_QUEUE", "class_name": "SaveQueue" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["SaveQueue"] }],
+  "ratelimits": [
+    { "name": "ACCOUNT_LIMITER", "namespace_id": "1001", "simple": { "limit": 60, "period": 60 } }
+  ],
+  "vars": { "WEBHOOK_URL": "https://hooks.savebox.example/deliver" },
+  "observability": { "enabled": true }
+}
