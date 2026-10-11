@@ -6,30 +6,30 @@ Free, open-source [Agent Skills](https://agentskills.io) for coding agents, main
 
 | Skill | What it does | Install |
 | ----- | ------------ | ------- |
-| [Cloudflare Cost Guard](skills/cloudflare-cost-guard/) | Read-only audit of a Cloudflare codebase for runaway usage and surprise billing: self-rescheduling alarms, queue loops, recursive Workers, unbounded retries and more. | `npx skills add layercache/agent-skills#v1.3.0 --skill cloudflare-cost-guard` |
+| [Cloudflare Cost Guard](skills/cloudflare-cost-guard/) | Read-only audit of a Cloudflare codebase for runaway usage and surprise billing: self-rescheduling alarms, queue loops, recursive Workers, unbounded retries and more. | `npx skills add layercache/agent-skills#v1.4.0 --skill cloudflare-cost-guard` |
 
 ## Install
 
 Skills install with the [`skills` CLI](https://github.com/vercel-labs/skills) (the one behind [skills.sh](https://skills.sh)). It needs Node.js and installs the skill for the agents you choose.
 
-Install from a tagged release, so you get a reviewed version of `main` rather than whatever was pushed last. The examples use `v1.3.0`; check [Releases](https://github.com/layercache/agent-skills/releases) for the latest tag. The CLI shows what it is about to install and asks before writing anything, so read the prompt rather than skipping it.
+Install from a tagged release, so you get a reviewed version of `main` rather than whatever was pushed last. The examples use `v1.4.0`; check [Releases](https://github.com/layercache/agent-skills/releases) for the latest tag. The CLI shows what it is about to install and asks before writing anything, so read the prompt rather than skipping it.
 
 ```bash
 # See what's available
-npx skills add layercache/agent-skills#v1.3.0 --list
+npx skills add layercache/agent-skills#v1.4.0 --list
 
 # Install one skill into the current project
-npx skills add layercache/agent-skills#v1.3.0 --skill cloudflare-cost-guard
+npx skills add layercache/agent-skills#v1.4.0 --skill cloudflare-cost-guard
 
 # Install for your user account instead, so every project can use it
 # (-a names your agent: codex, cursor, github-copilot, gemini-cli, opencode, claude-code, ...)
-npx skills add layercache/agent-skills#v1.3.0 --skill cloudflare-cost-guard -g -a <agent>
+npx skills add layercache/agent-skills#v1.4.0 --skill cloudflare-cost-guard -g -a <agent>
 
 # Install for specific agents only
-npx skills add layercache/agent-skills#v1.3.0 --skill cloudflare-cost-guard -a codex -a cursor
+npx skills add layercache/agent-skills#v1.4.0 --skill cloudflare-cost-guard -a codex -a cursor
 
 # Install every skill in this repository
-npx skills add layercache/agent-skills#v1.3.0 --skill '*'
+npx skills add layercache/agent-skills#v1.4.0 --skill '*'
 ```
 
 **What gets installed:** only the skill folder (`skills/<name>/`): Markdown instructions, reference notes and a report template. It contains no Wrangler config, `package.json` or runnable Worker code; example code appears only as fenced snippets in Markdown. The test projects under `evals/` are never installed.

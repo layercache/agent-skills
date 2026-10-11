@@ -1,0 +1,42 @@
+{
+  "kind": "vulnerable",
+  "summary": "Cron embedding job that never records progress, a harvest that re-inserts the feed every run, and an auth fallback that lists every legacy KV key.",
+  "expected_findings": [
+    {
+      "id": "cron-no-progress",
+      "service": "Workers AI",
+      "file": "src/jobs.ts",
+      "contains": "UPDATE articles SET embedded_at = ? WHERE source_id = ?",
+      "severity": [
+        "Critical"
+      ],
+      "autonomous": true,
+      "explanation": "embedPending() selects the 50 oldest rows with embedded_at IS NULL, embeds them with Workers AI, upserts them to Vectorize and inserts embeddings rows, then marks them done with WHERE source_id = ? bound to the integer id. Nothing matches, so the same 50 rows are embedded again every 5 minutes forever with no user activity."
+    },
+    {
+      "id": "harvest-reinsert",
+      "service": "D1",
+      "file": "src/jobs.ts",
+      "contains": "\"INSERT INTO articles (source_id, title, body, fetched_at) VALUES (?, ?, ?, ?)\"",
+      "severity": [
+        "High",
+        "Critical"
+      ],
+      "autonomous": true,
+      "explanation": "harvest() inserts every item of the latest-100 feed on every 5-minute run with a plain INSERT; source_id has only a non-unique index, so overlapping items are stored again each run. articles grows without retention, and every duplicate becomes embedding work once progress is recorded."
+    },
+    {
+      "id": "kv-list-auth-fallback",
+      "service": "KV",
+      "file": "src/auth.ts",
+      "contains": "await env.KEYS.list<{ secret: string; name: string }>({ prefix: \"legacy:\", cursor })",
+      "severity": [
+        "Medium",
+        "High"
+      ],
+      "autonomous": false,
+      "explanation": "With LEGACY_KEY_SCAN on, every request with an unknown token lists the whole legacy: prefix before returning 401, one list operation per 1,000 keys, with no rate limit in front. The SEARCH_LIMITER binding is configured but never called."
+    }
+  ],
+  "must_not_flag": []
+}

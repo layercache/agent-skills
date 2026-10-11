@@ -24,14 +24,15 @@ A search hit is only a lead. Confirm every pattern by tracing the path (SKILL.md
 - P16 Public hostname that bypasses zone protections
 - P17 Data that grows without cleanup
 - P18 One credential unlocks a large fan-out
+- P19 Hot query over data that grows outside a cap
 
 ---
 
 ## P1 Self-rescheduling alarm
 
-- **Leads:** `setAlarm\(`, `async alarm\(`, `Date\.now\(\)\s*\)`, `Date\.now\(\)\s*\+\s*\d{1,4}\b`
-- **Real when:** `alarm()` calls `setAlarm()` unconditionally, or under a condition that never becomes false; or a `catch` reschedules immediately.
-- **False positives:** reschedules only while durable state shows pending work and deletes the alarm when idle; enforces a minimum interval and a persisted maximum tick count.
+- **Leads:** `setAlarm\(`, `async alarm\(`, `Date\.now\(\)\s*\)`, `Date\.now\(\)\s*\+\s*\d{1,4}\b`; `setAlarm\(` with a time computed from stored state (`expiresAt`, `refreshAt`, `nextRunAt`, `deadline` minus a window).
+- **Real when:** `alarm()` calls `setAlarm()` unconditionally, or under a condition that never becomes false; or a `catch` reschedules immediately; or it reschedules at a stored time that the handler never moves forward, so once that time passes every run re-arms in the past and fires again at once (SKILL.md, Phase C step 7). The last shape is often dormant for days or weeks after deploy, until a refresh window or expiry opens.
+- **False positives:** reschedules only while durable state shows pending work, the handler itself moves that state toward done, and it deletes the alarm when idle; enforces a minimum interval and a persisted maximum tick count.
 - **Starting severity:** Critical when unconditional (autonomous, unbounded). See [durable-object-alarms.md](durable-object-alarms.md).
 
 ## P2 Alarm set on every wake-up or request
@@ -51,7 +52,7 @@ A search hit is only a lead. Confirm every pattern by tracing the path (SKILL.md
 ## P4 Producer/consumer cycle
 
 - **Leads:** queue consumers that call `send` on any queue; workflows that `create` workflows; Workers whose `queue` handler calls a service that enqueues.
-- **Real when:** following sends across consumers returns to the starting queue (A → B → A) with no depth field in the message.
+- **Real when:** following sends across consumers returns to the starting queue (A → B → A) with no depth field in the message. Also real when a consumer calls an API route of its own system (by `fetch` or a service binding) that enqueues work, for example because a mode flag such as `async` defaults to queueing, so the call re-enters the queue; an idempotency key that eventually deduplicates bounds the loop but multiplies every message.
 - **Starting severity:** High; Critical if every message produces at least one follow-up.
 
 ## P5 Recursive Worker fetch or service binding call
@@ -71,8 +72,8 @@ A search hit is only a lead. Confirm every pattern by tracing the path (SKILL.md
 ## P7 Schedule-driven work proportional to total data
 
 - **Leads:** `scheduled\(`, `triggers.*crons`, `SELECT .* FROM \w+\s*(;|"|'|`)` without `LIMIT`, `\.list\(\)` in cron code.
-- **Real when:** each run touches every user, row, object or file, and the data grows without limit; or runs overlap without a lock. Cost grows every day with no change in code.
-- **False positives:** cursor-based batches with a fixed `LIMIT` per run, incremental processing (`WHERE updated_at > ?`).
+- **Real when:** each run touches every user, row, object or file, and the data grows without limit; or runs overlap without a lock; or each run re-inserts rows it already has (no unique key on the source's identifier, no `ON CONFLICT` or `INSERT OR IGNORE`), so the table grows on every run. Cost grows every day with no change in code.
+- **False positives:** cursor-based batches with a fixed `LIMIT` per run, incremental processing (`WHERE updated_at > ?`), but only when the job moves the cursor or marks rows processed where the next run's query reads it (SKILL.md, Phase C step 7). A cursor or flag that never advances makes every run repeat the same batch forever; rate that as autonomous and unbounded.
 - **Starting severity:** High when every row triggers a billable operation (AI, R2, external API); Medium for reads only.
 
 ## P8 Unbounded fan-out per request
@@ -84,7 +85,7 @@ A search hit is only a lead. Confirm every pattern by tracing the path (SKILL.md
 ## P9 Database operations in loops (N+1) and full-table writes
 
 - **Leads:** `\.prepare\(` or ORM calls inside `for`/`map`; `UPDATE \w+ SET` without `WHERE`; `DELETE FROM \w+` without `WHERE`; `sql\.exec\(` in loops; `storage\.list\(\)` without `limit`.
-- **Real when:** row count is unbounded and the path runs often. D1 bills rows scanned, so an unindexed filter on a hot path also counts.
+- **Real when:** row count is unbounded and the path runs often. D1 and Durable Object SQLite bill rows scanned, so an unindexed filter on a hot path also counts; when the table keeps growing, see P19.
 - **Starting severity:** Medium; High when scheduled and over the whole table.
 
 ## P10 Write on every request
@@ -132,9 +133,9 @@ A search hit is only a lead. Confirm every pattern by tracing the path (SKILL.md
 
 ## P17 Data that grows without cleanup
 
-- **Leads:** tables or prefixes written per request or per sign-in (`sessions`, `verification`, `tokens`, `request_log`, `rate_limit`, `events`, `audit`) with no `DELETE`, TTL (`expirationTtl`), R2 lifecycle rule, or cleanup cron anywhere in the repo.
+- **Leads:** tables or prefixes written per request or per sign-in (`sessions`, `verification`, `tokens`, `request_log`, `rate_limit`, `events`, `audit`) with no `DELETE`, TTL (`expirationTtl`), R2 lifecycle rule, or cleanup cron anywhere in the repo; `INSERT INTO` in cron, consumer or sync code with no unique constraint or conflict clause on the source's identifier.
 - **Real when:** a scheduled job or hot query scans that data, or storage is billed, so cost grows every day with no code change.
-- **Starting severity:** Low; Medium when a scheduled job scans the growing data; raise further when combined with P7 or P9.
+- **Starting severity:** Low; Medium when a scheduled job scans the growing data; raise further when combined with P7 or P9. When a per-request or per-alarm query reads the growing data, see P19.
 
 ## P18 One credential unlocks a large fan-out
 
@@ -142,3 +143,10 @@ A search hit is only a lead. Confirm every pattern by tracing the path (SKILL.md
 - **Real when:** the route does bulk work per call (touches many objects, re-processes data, calls AI) with no per-call cap, so a leaked or misused token makes each call expensive and repeatable.
 - **False positives:** per-call caps independent of auth, per-user credentials with their own limits, routes not deployed to production.
 - **Starting severity:** Medium; High if the route is also on a hostname without other protection and the per-call work is large.
+
+## P19 Hot query over data that grows outside a cap
+
+- **Leads:** `COUNT(*)`, `MIN(`, `MAX(`, `SUM(`, `NOT IN (`, `ORDER BY` without `LIMIT`, and `DELETE ... WHERE <timestamp> <= ?` in request handlers, alarms or crons; `\.list\(` on KV, R2 or Durable Object storage in request paths, especially in sign-in, API-key or lookup fallbacks, and paginated `cursor` loops around it; a cap check such as `>= MAX_` before an insert; retention constants (`RETENTION`, `TTL`, `30 * 24 * 60 * 60`) on tables that keep finished or cancelled rows; tables with no `CREATE INDEX` on the columns these queries filter.
+- **Real when:** a query that runs per request, per alarm or per cron run reads rows that keep accumulating, and nothing bounds what it reads: no `LIMIT` it can stop at, no index that skips the accumulated rows, no cap on the whole table. A `list()` loop over a growing KV, R2 or storage prefix on a request path is the same shape: each request pays one list operation per page, and when unauthenticated requests reach it (a fallback that runs when a key lookup misses), anyone sets the volume. The usual shape is a cap on waiting or active rows while finished, cancelled or delivered rows are kept as history, so the queue looks bounded and the table is not. Check the data growth inventory (SKILL.md, Phase A) for what adds and removes the rows, and the schema for which index the filter can use. An index on a different column order (for example `(owner_id, created_at)` for a filter on `owner_id` and `status`) still reads every row for that user.
+- **False positives:** an index whose leading columns match the filter so the query reads only the capped rows; a cap on the whole table (all states) that keeps it small; a `LIMIT` the query can stop at, such as `ORDER BY` on an indexed column; data that only the operator writes.
+- **Starting severity:** High when the caller can add the rows the query reads (see the calibration rule for cost that grows with the caller's own data); Medium when only time or ordinary use grows them; raise to Critical only with P1 or P7, when an autonomous path reads the data and nothing stops the growth.

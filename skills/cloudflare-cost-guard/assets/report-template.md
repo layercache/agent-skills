@@ -31,6 +31,14 @@
 
 **Public entry points:** <each Worker's custom domains, routes, `workers.dev` (on/off/default), preview URLs, and which routes need authentication>
 
+## Data growth
+
+<!-- Every table, KV prefix, R2 prefix and Durable Object storage prefix the code writes. "Capped by" must cover every entry, not a subset of states; write "nothing" when nothing caps it. -->
+
+| Table or prefix | Added by | Removed by | Capped by | Read per request, alarm or cron by |
+| --------------- | -------- | ---------- | --------- | ---------------------------------- |
+| <jobs (D1)> | <POST /jobs, src/jobs.ts:40> | <90-day retention cron, src/cron.ts:12> | <nothing (only open jobs capped at 50)> | <COUNT per request, src/jobs.ts:31 (no index on status)> |
+
 ## Findings
 
 <!-- One block per finding, ordered by severity. IDs: CG-1, CG-2, ... -->
@@ -61,7 +69,7 @@
 
 ## Reviewed and not flagged
 
-<!-- Notable leads you dismissed, with one line each on why they are bounded. -->
+<!-- Notable leads you dismissed, with one line each on why they are bounded. A cap on some row states is not a reason; name what bounds the rows each hot query reads. -->
 
 - <path:line>: <why it is bounded>
 

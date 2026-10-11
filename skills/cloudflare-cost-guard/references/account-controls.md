@@ -18,13 +18,13 @@ Sources: [Budget alerts](https://developers.cloudflare.com/billing/manage/budget
 Mark each row for the user to check in the Cloudflare dashboard:
 
 - [ ] Which plan the account is on (Free or Workers Paid).
-- [ ] Budget alerts exist, with thresholds well below what would hurt, sent to a monitored inbox.
+- [ ] Budget alerts exist at several thresholds of expected monthly spend (for example 25%, 50% and 75%), sent to a monitored inbox, so a loop surfaces within hours rather than at the invoice.
 - [ ] Billable usage notifications for the products in the inventory, where offered.
 - [ ] `limits.cpu_ms` and `limits.subrequests` for each Worker match the repository config (dashboard edits can override it).
 - [ ] Queue consumer settings (`max_retries`, dead letter queue, concurrency) match the repository.
 - [ ] Cron Triggers in the dashboard match `triggers.crons` in the repo; no stale crons on old Workers.
 - [ ] No old or preview Workers, Durable Object namespaces or containers still deployed with the behavior found in this audit.
-- [ ] Durable Object usage per class in the dashboard: look for request or duration counts with no matching user traffic (a sign of alarm loops).
+- [ ] Durable Object invocation counts and storage operations per namespace in the dashboard: a jump from thousands to hundreds of millions of invocations a day, or rows read and written with no matching user traffic, is the earliest sign of an alarm loop. Check after each change to a Durable Object.
 - [ ] Queue backlog and retry counts; dead letter queue size.
 - [ ] Workers AI, Browser Run and Containers usage graphs for steady consumption at night or weekends.
 - [ ] AI Gateway rate limits and caching configured where AI calls go through a gateway.

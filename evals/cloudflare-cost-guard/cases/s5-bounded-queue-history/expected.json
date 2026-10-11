@@ -1,0 +1,19 @@
+{
+  "kind": "safe",
+  "summary": "The same per-account queue with indexes that match each hot query, a per-user history cap and a device cap.",
+  "expected_findings": [],
+  "must_not_flag": [
+    {
+      "file": "src/save-queue.ts",
+      "contains": "this.sql.exec(\"DELETE FROM deliveries WHERE state = ? AND updated_at <= ?\", state, cutoff);",
+      "max_severity": "Low",
+      "reason": "Each state's prune is a range on the (state, updated_at) index, so it reads only expired rows."
+    },
+    {
+      "file": "src/save-queue.ts",
+      "contains": "\"SELECT id, user_id, payload, attempts, created_at FROM deliveries WHERE state = ? ORDER BY created_at LIMIT ?\"",
+      "max_severity": "Low",
+      "reason": "The alarm batch uses the (state, created_at) index with a LIMIT per state."
+    }
+  ]
+}

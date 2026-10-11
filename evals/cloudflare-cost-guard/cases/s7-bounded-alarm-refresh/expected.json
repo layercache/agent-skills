@@ -1,0 +1,19 @@
+{
+  "kind": "safe",
+  "summary": "The same refresh alarm, refreshing only after new messages, replacing the previous snapshot and never re-arming sooner than a fixed floor.",
+  "expected_findings": [],
+  "must_not_flag": [
+    {
+      "file": "src/session.ts",
+      "contains": "if (now >= checkpointRefreshAt(cp) && lastSeq > cp.snapshotSeq) {",
+      "max_severity": "Low",
+      "reason": "A refresh runs only when messages arrived since the last snapshot and moves expiresAt forward; an idle session schedules its expiry and stops."
+    },
+    {
+      "file": "src/session.ts",
+      "contains": "await this.ctx.storage.setAlarm(Math.max(target, now + MIN_ALARM_DELAY_MS));",
+      "max_severity": "Low",
+      "reason": "Every alarm is at least 15 minutes away, so no stored time can make it fire back-to-back."
+    }
+  ]
+}
