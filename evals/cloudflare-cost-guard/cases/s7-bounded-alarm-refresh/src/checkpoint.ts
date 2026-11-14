@@ -15,6 +15,7 @@ export interface Checkpoint {
 export const CHECKPOINT_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 export const REFRESH_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 export const MIN_ALARM_DELAY_MS = 15 * 60 * 1000;
+export const MAX_MESSAGES = 2000;
 
 export function newCheckpoint(now: number): Checkpoint {
   return { snapshotKey: null, createdAt: now, expiresAt: now + CHECKPOINT_TTL_MS, refreshedAt: null, snapshotSeq: 0 };

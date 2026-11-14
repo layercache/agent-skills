@@ -6,7 +6,7 @@
 
 import { DurableObject } from "cloudflare:workers";
 import type { Env } from "./index";
-import { CHECKPOINT_TTL_MS, MIN_ALARM_DELAY_MS, checkpointRefreshAt, newCheckpoint, type Checkpoint } from "./checkpoint";
+import { CHECKPOINT_TTL_MS, MAX_MESSAGES, MIN_ALARM_DELAY_MS, checkpointRefreshAt, newCheckpoint, type Checkpoint } from "./checkpoint";
 
 export class TutorSession extends DurableObject<Env> {
   private sql: SqlStorage;
@@ -21,6 +21,7 @@ export class TutorSession extends DurableObject<Env> {
 
   async append(role: string, content: string) {
     const now = Date.now();
+    if (this.lastSeq() >= MAX_MESSAGES) return { ok: false, reason: "session is full" };
     this.sql.exec("INSERT INTO messages (role, content, at) VALUES (?, ?, ?)", role, content, now);
 
     let cp = await this.ctx.storage.get<Checkpoint>("checkpoint");
@@ -38,11 +39,13 @@ export class TutorSession extends DurableObject<Env> {
 
     const now = Date.now();
     if (now >= cp.expiresAt) {
+      if (cp.snapshotKey) await this.env.SNAPSHOTS.delete(cp.snapshotKey);
+      this.sql.exec("DELETE FROM messages");
       await this.ctx.storage.delete("checkpoint");
       return;
     }
 
-    const lastSeq = this.sql.exec<{ seq: number | null }>("SELECT MAX(seq) AS seq FROM messages").one().seq ?? 0;
+    const lastSeq = this.lastSeq();
     if (now >= checkpointRefreshAt(cp) && lastSeq > cp.snapshotSeq) {
       await this.runAlarm(cp, lastSeq);
     }
@@ -64,6 +67,10 @@ export class TutorSession extends DurableObject<Env> {
       expiresAt: refreshedAt + CHECKPOINT_TTL_MS,
     };
     await this.ctx.storage.put("checkpoint", next);
+  }
+
+  private lastSeq(): number {
+    return this.sql.exec<{ seq: number | null }>("SELECT MAX(seq) AS seq FROM messages").one().seq ?? 0;
   }
 
   private async scheduleRefresh(cp: Checkpoint): Promise<void> {

@@ -23,10 +23,15 @@ interface CataloguePage {
 
 const PAGE_SIZE = 500;
 const BATCH_SIZE = 100;
+const MAX_PAGES_PER_RUN = 20;
+const FETCH_TIMEOUT_MS = 10_000;
 const CURSOR_NAME = "catalogue";
 
 async function fetchPage(env: Env, url: string): Promise<CataloguePage> {
-  const res = await fetch(url, { headers: { authorization: `Bearer ${env.SUPPLIER_TOKEN}` } });
+  const res = await fetch(url, {
+    headers: { authorization: `Bearer ${env.SUPPLIER_TOKEN}` },
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+  });
   if (!res.ok) throw new Error(`supplier returned ${res.status}`);
   return (await res.json()) as CataloguePage;
 }
@@ -35,7 +40,7 @@ export async function syncCatalogue(env: Env): Promise<void> {
   const state = await env.DB.prepare("SELECT cursor FROM sync_state WHERE name = ?")
     .bind(CURSOR_NAME)
     .first<{ cursor: string }>();
-  let cursor = state?.cursor ?? "1970-01-01T00:00:00Z";
+  let cursor = state?.cursor ?? "1970-01-01T00:00:00Z|";
 
   const upsert = env.DB.prepare(
     `INSERT INTO products (sku, title, brand, category, price_cents, in_stock, synced_at)
@@ -52,8 +57,8 @@ export async function syncCatalogue(env: Env): Promise<void> {
   );
 
   let next: string | null =
-    `${env.CATALOGUE_URL}?per_page=${PAGE_SIZE}&sort=updated_at&updated_since=${encodeURIComponent(cursor)}`;
-  while (next) {
+    `${env.CATALOGUE_URL}?per_page=${PAGE_SIZE}&sort=updated_at,sku&after=${encodeURIComponent(cursor)}`;
+  for (let pages = 0; next && pages < MAX_PAGES_PER_RUN; pages++) {
     const page = await fetchPage(env, next);
     if (page.products.length === 0) break;
     const now = Date.now();
@@ -65,7 +70,8 @@ export async function syncCatalogue(env: Env): Promise<void> {
         )
       );
     }
-    cursor = page.products[page.products.length - 1].updated_at;
+    const last = page.products[page.products.length - 1];
+    cursor = `${last.updated_at}|${last.sku}`;
     await saveCursor.bind(CURSOR_NAME, cursor).run();
     next = page.next;
   }

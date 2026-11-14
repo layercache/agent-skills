@@ -2,6 +2,7 @@
   "kind": "safe",
   "summary": "The same per-account queue with indexes that match each hot query, a per-user history cap and a device cap.",
   "expected_findings": [],
+  "max_overall_severity": "Low",
   "must_not_flag": [
     {
       "file": "src/save-queue.ts",

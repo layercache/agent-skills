@@ -1,6 +1,6 @@
 {
   "kind": "safe",
-  "summary": "The same every-minute catalogue sync, fetching only products changed since a saved cursor and upserting only rows whose values differ.",
+  "summary": "The same every-minute catalogue sync, fetching only products changed since a saved (updated_at, sku) cursor, capped at 20 pages a run, and upserting only rows whose values differ.",
   "expected_findings": [],
   "max_overall_severity": "Low",
   "must_not_flag": [
@@ -14,7 +14,7 @@
       "file": "src/sync.ts",
       "contains": "await saveCursor.bind(CURSOR_NAME, cursor).run();",
       "max_severity": "Low",
-      "reason": "The cursor is saved after each page is written, under the same name the next run reads, so each run starts where the last one ended and a failed run keeps the pages it finished."
+      "reason": "The cursor is saved after each page is written, under the same name the next run reads, and it pairs updated_at with the SKU so products that share a timestamp are not fetched again. Each run starts where the last one ended, reads at most 20 pages with a fetch timeout, and a failed run keeps the pages it finished."
     }
   ]
 }

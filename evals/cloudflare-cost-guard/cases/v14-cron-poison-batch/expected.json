@@ -12,7 +12,7 @@
         "High"
       ],
       "autonomous": true,
-      "explanation": "embedPending() runs every 5 minutes, selects the 50 oldest articles with embedded_at IS NULL, pays Workers AI to embed them, upserts them to Vectorize, and only then sets embedded_at. There is no attempt count per article. If the Vectorize upsert or the D1 batch keeps failing for one article (for example a partner source_id over the vector ID limit), the whole batch is never marked done, so every run re-embeds the same 50 articles with no user activity until someone notices."
+      "explanation": "embedPending() runs every 5 minutes, selects the 50 oldest articles with embedded_at IS NULL, pays Workers AI to embed them, upserts them to Vectorize, and only then sets embedded_at. There is no attempt count per article. If the Vectorize upsert or the D1 batch keeps failing for one article (for example a partner source_id over the vector ID limit), the whole batch is never marked done, so every run re-embeds the same 50 articles with no user activity until someone notices. Once it starts, the cost rate is fixed: about 7.4M tokens of bge-base-en-v1.5 a day at its 512-token input limit, roughly 4.5x the included 10,000 Neurons a day, or about $11 a month, so Medium by steady volume."
     }
   ],
   "must_not_flag": [

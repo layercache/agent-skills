@@ -11,7 +11,10 @@ export interface Env {
   SESSIONS: DurableObjectNamespace<TutorSession>;
   SNAPSHOTS: R2Bucket;
   AUTH: KVNamespace;
+  PER_USER: RateLimit;
 }
+
+const ROLES = new Set(["user", "assistant"]);
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -23,8 +26,12 @@ export default {
     const match = url.pathname.match(/^\/sessions\/([a-z0-9-]{1,64})\/messages$/);
     if (!match || request.method !== "POST") return new Response("not found", { status: 404 });
 
+    const { success } = await env.PER_USER.limit({ key: userId });
+    if (!success) return new Response("slow down", { status: 429 });
+
     const stub = env.SESSIONS.get(env.SESSIONS.idFromName(`${userId}:${match[1]}`));
     const { role, content } = await request.json<{ role: string; content: string }>();
+    if (!ROLES.has(role) || typeof content !== "string") return new Response("bad message", { status: 400 });
     return Response.json(await stub.append(role, content.slice(0, 8000)));
   },
 } satisfies ExportedHandler<Env>;

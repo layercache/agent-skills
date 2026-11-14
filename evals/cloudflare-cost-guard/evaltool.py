@@ -151,19 +151,46 @@ def same_file(reported: str, expected: str) -> bool:
     return reported == expected or reported.endswith("/" + expected)
 
 
-def near(finding: dict, anchor: dict) -> bool:
-    """True if the finding's main location or any listed location is near the anchor."""
+def distance(finding: dict, anchor: dict) -> int | None:
+    """Lines between the anchor and the finding's closest location in the same file, or None if not near.
+
+    A location with no line number counts as near, at the edge of the window.
+    """
     places = [finding] + [p for p in finding.get("locations") or [] if isinstance(p, dict)]
+    best = None
     for place in places:
+        if not same_file(str(place.get("file", "")), anchor["file"]):
+            continue
         try:
             line = int(place.get("line") or 0)
         except (TypeError, ValueError):
             line = 0
-        if same_file(str(place.get("file", "")), anchor["file"]) and (
-            line == 0 or abs(line - anchor["line"]) <= LINE_WINDOW
-        ):
-            return True
-    return False
+        gap = LINE_WINDOW if line == 0 else abs(line - anchor["line"])
+        if gap <= LINE_WINDOW and (best is None or gap < best):
+            best = gap
+    return best
+
+
+def near(finding: dict, anchor: dict) -> bool:
+    """True if the finding's main location or any listed location is near the anchor."""
+    return distance(finding, anchor) is not None
+
+
+def owns(finding: dict, anchor: dict, expected: list[dict]) -> bool:
+    """True if the finding is near the anchor and no other expected anchor is closer.
+
+    One finding then cannot stand in for a different expected finding a few lines away.
+    """
+    gap = distance(finding, anchor)
+    if gap is None:
+        return False
+    for other in expected:
+        if other is anchor:
+            continue
+        other_gap = distance(finding, other)
+        if other_gap is not None and other_gap < gap:
+            return False
+    return True
 
 
 def grade(case_dir: Path, report_text: str) -> tuple[bool, list[str]]:
@@ -175,8 +202,13 @@ def grade(case_dir: Path, report_text: str) -> tuple[bool, list[str]]:
         return False, [str(exc)]
     findings = report.get("findings") or []
     ok = True
-    for anchor in anchors(case_dir, case):
-        matches = [f for f in findings if near(f, anchor)]
+    all_anchors = anchors(case_dir, case)
+    expected = [a for a in all_anchors if a["role"] == "expect"]
+    for anchor in all_anchors:
+        if anchor["role"] == "expect":
+            matches = [f for f in findings if owns(f, anchor, expected)]
+        else:
+            matches = [f for f in findings if near(f, anchor)]
         if anchor["role"] == "expect":
             hits = [f for f in matches if f.get("severity") in anchor["severity"]]
             wrong_auto = [f for f in hits if bool(f.get("autonomous")) != bool(anchor["autonomous"])]
@@ -255,6 +287,19 @@ def self_test() -> list[str]:
         ok, notes = grade(case_dir, synthetic_report(via_locations))
         if not ok:
             errors.append(f"{case_dir.name}: report matching only via locations failed: {notes}")
+        expected = [a for a in anchors(case_dir, case) if a["role"] == "expect"]
+        for i, anchor in enumerate(expected):
+            others = [b for b in expected if b is not anchor and b["file"] == anchor["file"]]
+            if not others:
+                continue
+            # One finding on this anchor that also lists a line just inside the window of
+            # each other anchor in the same file must not satisfy those anchors too.
+            reach = [{"file": b["file"], "line": b["line"] + (LINE_WINDOW if b["line"] > anchor["line"] else -LINE_WINDOW)}
+                     for b in others]
+            one = [{**perfect[i], "locations": [{"file": anchor["file"], "line": anchor["line"]}] + reach}]
+            ok, _ = grade(case_dir, synthetic_report(one))
+            if ok:
+                errors.append(f"{case_dir.name}: one finding satisfied {len(others) + 1} expected findings")
         if case["kind"] == "vulnerable":
             flipped = [{**f, "autonomous": not f["autonomous"]} for f in perfect]
             ok, _ = grade(case_dir, synthetic_report(flipped))
