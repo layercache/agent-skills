@@ -1,11 +1,17 @@
 {
   "kind": "safe",
-  "summary": "The same news pipeline with a unique source_id, an index on the pending predicate, progress marked by primary key and a direct legacy key lookup.",
+  "summary": "The same news pipeline with a unique source_id, an index on the pending predicate, progress marked by primary key, an attempt limit saved before each paid embedding call, and a direct legacy key lookup.",
   "expected_findings": [],
   "must_not_flag": [
     {
       "file": "src/jobs.ts",
-      "contains": "UPDATE articles SET embedded_at = ? WHERE id = ?",
+      "contains": "\"UPDATE articles SET embed_attempts = embed_attempts + 1, embed_gave_up_at = CASE WHEN embed_attempts + 1 >= ? THEN ? END WHERE id = ?\"",
+      "max_severity": "Low",
+      "reason": "Each article's attempt count is saved before Workers AI is called, and after three attempts it leaves the pending set, so an article that keeps failing is paid for at most three times."
+    },
+    {
+      "file": "src/jobs.ts",
+      "contains": "env.DB.prepare(\"UPDATE articles SET embedded_at = ?, embed_gave_up_at = NULL WHERE id = ?\").bind(now, r.id),",
       "max_severity": "Low",
       "reason": "Progress is written to the rows the job selected, so the pending set drains and each run does only new work."
     },

@@ -13,6 +13,7 @@ interface FeedItem {
 }
 
 const EMBED_BATCH = 50;
+const MAX_EMBED_ATTEMPTS = 3;
 
 export async function harvest(env: Env): Promise<void> {
   const res = await fetch(env.FEED_URL, { headers: { accept: "application/json" } });
@@ -27,11 +28,20 @@ export async function harvest(env: Env): Promise<void> {
 
 export async function embedPending(env: Env): Promise<void> {
   const { results } = await env.DB.prepare(
-    "SELECT id, source_id, title, body FROM articles WHERE embedded_at IS NULL ORDER BY id LIMIT ?"
+    "SELECT id, source_id, title, body FROM articles WHERE embedded_at IS NULL AND embed_gave_up_at IS NULL ORDER BY id LIMIT ?"
   )
     .bind(EMBED_BATCH)
     .all<{ id: number; source_id: string; title: string; body: string }>();
   if (results.length === 0) return;
+
+  const started = Date.now();
+  await env.DB.batch(
+    results.map((r) =>
+      env.DB.prepare(
+        "UPDATE articles SET embed_attempts = embed_attempts + 1, embed_gave_up_at = CASE WHEN embed_attempts + 1 >= ? THEN ? END WHERE id = ?"
+      ).bind(MAX_EMBED_ATTEMPTS, started, r.id)
+    )
+  );
 
   const { data } = await env.AI.run(EMBED_MODEL, { text: results.map((r) => `${r.title}\n\n${r.body}`) });
   await env.VECTORS.upsert(
@@ -42,7 +52,7 @@ export async function embedPending(env: Env): Promise<void> {
   await env.DB.batch(
     results.flatMap((r) => [
       env.DB.prepare("INSERT INTO embeddings (article_id, model, created_at) VALUES (?, ?, ?)").bind(r.id, EMBED_MODEL, now),
-      env.DB.prepare("UPDATE articles SET embedded_at = ? WHERE id = ?").bind(now, r.id),
+      env.DB.prepare("UPDATE articles SET embedded_at = ?, embed_gave_up_at = NULL WHERE id = ?").bind(now, r.id),
     ])
   );
 }

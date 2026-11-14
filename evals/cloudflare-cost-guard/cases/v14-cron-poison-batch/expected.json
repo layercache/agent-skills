@@ -1,0 +1,26 @@
+{
+  "kind": "vulnerable",
+  "summary": "News pipeline whose embedding cron pays Workers AI for a batch before marking it done, with no attempt limit per article.",
+  "expected_findings": [
+    {
+      "id": "paid-step-before-progress",
+      "service": "Workers AI",
+      "file": "src/jobs.ts",
+      "contains": "const { data } = await env.AI.run(EMBED_MODEL, { text: results.map((r) => `${r.title}\\n\\n${r.body}`) });",
+      "severity": [
+        "Medium",
+        "High"
+      ],
+      "autonomous": true,
+      "explanation": "embedPending() runs every 5 minutes, selects the 50 oldest articles with embedded_at IS NULL, pays Workers AI to embed them, upserts them to Vectorize, and only then sets embedded_at. There is no attempt count per article. If the Vectorize upsert or the D1 batch keeps failing for one article (for example a partner source_id over the vector ID limit), the whole batch is never marked done, so every run re-embeds the same 50 articles with no user activity until someone notices."
+    }
+  ],
+  "must_not_flag": [
+    {
+      "file": "src/auth.ts",
+      "contains": "const legacy = await env.KEYS.get<Client>(`key:legacy:${await sha256(token)}`, \"json\");",
+      "max_severity": "Low",
+      "reason": "A legacy key costs one KV read, whatever the number of legacy keys."
+    }
+  ]
+}

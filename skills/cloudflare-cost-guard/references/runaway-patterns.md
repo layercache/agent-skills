@@ -121,9 +121,10 @@ A search hit is only a lead. Confirm every pattern by tracing the path (SKILL.md
 
 ## P15 Failure path that does more billable work
 
-- **Leads:** `catch` blocks that call `fetch`, `send`, `put`, `AI.run`, `setAlarm(Date.now())`; logging full payloads on every error; error reporting per item in loops.
-- **Real when:** a persistent failure (bad credentials, downstream outage, poison message) makes each attempt cost more than success, and attempts repeat.
-- **Starting severity:** Medium; raise it if the failure path re-triggers itself.
+- **Leads:** `catch` blocks that call `fetch`, `send`, `put`, `AI.run`, `setAlarm(Date.now())`; logging full payloads on every error; error reporting per item in loops. In scheduled batch jobs: `AI.run`, a metered `fetch` or a Browser Run session that runs before the step that marks rows done (`UPDATE ... SET done_at`, `processed = 1`), with no attempts column or retry count on the rows.
+- **Real when:** a persistent failure (bad credentials, downstream outage, poison message) makes each attempt cost more than success, and attempts repeat. A repeating batch job that pays for a step before it records progress, and keeps no attempt count per item, is the same shape: one item that keeps failing in a later step (a vector or database write that rejects it, an ID or field over a size limit) stops the whole batch from being marked done, so every run selects the same items and pays for them again, forever.
+- **False positives:** an attempt count per item saved before the paid step, with items over a fixed limit moved out of the pending set; progress saved before the paid step; per-item error handling that lets the rest of the batch finish and parks the failing item.
+- **Starting severity:** Medium; raise it if the failure path re-triggers itself. For a paid batch step with no attempt limit: High when the step is Workers AI, Browser Run or a metered API and the schedule runs every few minutes or faster, otherwise Medium. Rate it by this rule, not by the no-progress rule in SKILL.md: progress is recorded whenever the batch succeeds, and the loop needs a persistent failure to start.
 
 ## P16 Public hostname that bypasses zone protections
 
