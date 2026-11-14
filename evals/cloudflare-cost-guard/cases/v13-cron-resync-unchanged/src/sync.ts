@@ -40,7 +40,11 @@ export async function syncCatalogue(env: Env): Promise<void> {
   const products = await fetchCatalogue(env);
   const now = Date.now();
   const upsert = env.DB.prepare(
-    "INSERT OR REPLACE INTO products (sku, title, brand, category, price_cents, in_stock, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
+    `INSERT INTO products (sku, title, brand, category, price_cents, in_stock, synced_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(sku) DO UPDATE SET
+       title = excluded.title, brand = excluded.brand, category = excluded.category,
+       price_cents = excluded.price_cents, in_stock = excluded.in_stock, synced_at = excluded.synced_at`
   );
   for (let i = 0; i < products.length; i += BATCH_SIZE) {
     const chunk = products.slice(i, i + BATCH_SIZE);

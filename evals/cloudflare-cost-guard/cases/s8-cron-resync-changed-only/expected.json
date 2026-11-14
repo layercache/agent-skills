@@ -12,9 +12,9 @@
     },
     {
       "file": "src/sync.ts",
-      "contains": "\"INSERT INTO sync_state (name, cursor) VALUES (?, ?) ON CONFLICT(name) DO UPDATE SET cursor = excluded.cursor\"",
+      "contains": "await saveCursor.bind(CURSOR_NAME, cursor).run();",
       "max_severity": "Low",
-      "reason": "The cursor is written after the batch succeeds, under the same name the next run reads, so each run starts where the last one ended."
+      "reason": "The cursor is saved after each page is written, under the same name the next run reads, so each run starts where the last one ended and a failed run keeps the pages it finished."
     }
   ]
 }

@@ -25,30 +25,18 @@ const PAGE_SIZE = 500;
 const BATCH_SIZE = 100;
 const CURSOR_NAME = "catalogue";
 
-async function fetchChanges(env: Env, since: string): Promise<SupplierProduct[]> {
-  const changed: SupplierProduct[] = [];
-  let next: string | null =
-    `${env.CATALOGUE_URL}?per_page=${PAGE_SIZE}&updated_since=${encodeURIComponent(since)}`;
-  while (next) {
-    const res = await fetch(next, { headers: { authorization: `Bearer ${env.SUPPLIER_TOKEN}` } });
-    if (!res.ok) throw new Error(`supplier returned ${res.status}`);
-    const page = (await res.json()) as CataloguePage;
-    changed.push(...page.products);
-    next = page.next;
-  }
-  return changed;
+async function fetchPage(env: Env, url: string): Promise<CataloguePage> {
+  const res = await fetch(url, { headers: { authorization: `Bearer ${env.SUPPLIER_TOKEN}` } });
+  if (!res.ok) throw new Error(`supplier returned ${res.status}`);
+  return (await res.json()) as CataloguePage;
 }
 
 export async function syncCatalogue(env: Env): Promise<void> {
   const state = await env.DB.prepare("SELECT cursor FROM sync_state WHERE name = ?")
     .bind(CURSOR_NAME)
     .first<{ cursor: string }>();
-  const since = state?.cursor ?? "1970-01-01T00:00:00Z";
+  let cursor = state?.cursor ?? "1970-01-01T00:00:00Z";
 
-  const products = await fetchChanges(env, since);
-  if (products.length === 0) return;
-
-  const now = Date.now();
   const upsert = env.DB.prepare(
     `INSERT INTO products (sku, title, brand, category, price_cents, in_stock, synced_at)
      VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -59,19 +47,26 @@ export async function syncCatalogue(env: Env): Promise<void> {
        OR products.category IS NOT excluded.category OR products.price_cents IS NOT excluded.price_cents
        OR products.in_stock IS NOT excluded.in_stock`
   );
-  for (let i = 0; i < products.length; i += BATCH_SIZE) {
-    const chunk = products.slice(i, i + BATCH_SIZE);
-    await env.DB.batch(
-      chunk.map((p) =>
-        upsert.bind(p.sku, p.title, p.brand, p.category, p.price_cents, p.in_stock ? 1 : 0, now)
-      )
-    );
-  }
-
-  const latest = products.reduce((max, p) => (p.updated_at > max ? p.updated_at : max), since);
-  await env.DB.prepare(
+  const saveCursor = env.DB.prepare(
     "INSERT INTO sync_state (name, cursor) VALUES (?, ?) ON CONFLICT(name) DO UPDATE SET cursor = excluded.cursor"
-  )
-    .bind(CURSOR_NAME, latest)
-    .run();
+  );
+
+  let next: string | null =
+    `${env.CATALOGUE_URL}?per_page=${PAGE_SIZE}&sort=updated_at&updated_since=${encodeURIComponent(cursor)}`;
+  while (next) {
+    const page = await fetchPage(env, next);
+    if (page.products.length === 0) break;
+    const now = Date.now();
+    for (let i = 0; i < page.products.length; i += BATCH_SIZE) {
+      const chunk = page.products.slice(i, i + BATCH_SIZE);
+      await env.DB.batch(
+        chunk.map((p) =>
+          upsert.bind(p.sku, p.title, p.brand, p.category, p.price_cents, p.in_stock ? 1 : 0, now)
+        )
+      );
+    }
+    cursor = page.products[page.products.length - 1].updated_at;
+    await saveCursor.bind(CURSOR_NAME, cursor).run();
+    next = page.next;
+  }
 }

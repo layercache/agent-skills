@@ -24,7 +24,7 @@ The fixtures are static source code. Nothing here deploys or calls Cloudflare, a
 | `v10-queue-history-scan` | Risky | Per-account queue that caps waiting rows but scans its uncapped history on every request and alarm | High |
 | `v11-cron-no-progress` | Risky | Cron embedding job that marks progress on the wrong column, a harvest that re-inserts the feed, and a KV list auth fallback | Critical, High or Critical, Medium or High |
 | `v12-alarm-refresh-window` | Risky | Durable Object refresh alarm that re-arms at a stored time it never moves forward | Critical |
-| `v13-cron-resync-unchanged` | Risky | Every-minute cron that rewrites a whole supplier catalogue into an indexed D1 table with `INSERT OR REPLACE`, changed or not | Medium or High |
+| `v13-cron-resync-unchanged` | Risky | Every-minute cron that rewrites a whole supplier catalogue into an indexed D1 table with an `ON CONFLICT DO UPDATE` upsert, changed or not | Medium or High |
 | `s1-bounded-alarm` | Bounded | Alarm with minimum interval, idle shutdown and persisted limits | Nothing above Low |
 | `s2-bounded-queue-consumer` | Bounded | Consumer with `max_retries`, dead letter queue, backoff and idempotency | Nothing above Low |
 | `s3-bounded-d1-batch` | Bounded | Authenticated, rate-limited import capped at 500 rows | Nothing above Low |
