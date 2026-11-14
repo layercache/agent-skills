@@ -1,0 +1,26 @@
+{
+  "kind": "vulnerable",
+  "summary": "Every-minute cron that rewrites the whole supplier catalogue into an indexed D1 table with INSERT OR REPLACE, whether or not anything changed.",
+  "expected_findings": [
+    {
+      "id": "cron-rewrites-unchanged-catalogue",
+      "service": "D1",
+      "file": "src/sync.ts",
+      "contains": "\"INSERT OR REPLACE INTO products (sku, title, brand, category, price_cents, in_stock, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?)\"",
+      "severity": [
+        "Medium",
+        "High"
+      ],
+      "autonomous": true,
+      "explanation": "syncCatalogue() runs every minute, pages through the whole supplier catalogue and writes every product with INSERT OR REPLACE. sku is the primary key, so the table does not grow, but each run deletes and re-inserts every row and updates three secondary indexes, and synced_at changes on every run, so nothing is ever skipped. There is no ETag or If-Modified-Since on the fetch and no comparison with stored values. At 3,000 products that is at least 3,000 x 4 rows written x 43,200 runs, about 518M rows written per month, roughly 10x the 50M included on Workers Paid, every month, with no users."
+    }
+  ],
+  "must_not_flag": [
+    {
+      "file": "src/index.ts",
+      "contains": "\"SELECT sku, title, brand, price_cents, in_stock FROM products WHERE category = ? ORDER BY price_cents LIMIT 50\"",
+      "max_severity": "Low",
+      "reason": "Authenticated, served by the (category, price_cents) index and capped at 50 rows."
+    }
+  ]
+}

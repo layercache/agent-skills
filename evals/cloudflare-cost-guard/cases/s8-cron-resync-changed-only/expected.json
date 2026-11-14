@@ -1,0 +1,20 @@
+{
+  "kind": "safe",
+  "summary": "The same every-minute catalogue sync, fetching only products changed since a saved cursor and upserting only rows whose values differ.",
+  "expected_findings": [],
+  "max_overall_severity": "Low",
+  "must_not_flag": [
+    {
+      "file": "src/sync.ts",
+      "contains": "ON CONFLICT(sku) DO UPDATE SET",
+      "max_severity": "Low",
+      "reason": "The upsert's WHERE skips rows whose values are unchanged, and the run only receives products the supplier changed since the saved cursor; an unchanged catalogue costs one indexed read per minute."
+    },
+    {
+      "file": "src/sync.ts",
+      "contains": "\"INSERT INTO sync_state (name, cursor) VALUES (?, ?) ON CONFLICT(name) DO UPDATE SET cursor = excluded.cursor\"",
+      "max_severity": "Low",
+      "reason": "The cursor is written after the batch succeeds, under the same name the next run reads, so each run starts where the last one ended."
+    }
+  ]
+}

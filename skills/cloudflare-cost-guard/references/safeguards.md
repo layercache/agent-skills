@@ -35,6 +35,7 @@ For each safeguard you find, answer all of these:
 | Max depth for queues/workflows | Generation or depth field in the message/params, checked against a fixed max | Depth field not copied to child messages |
 | Authentication | Expensive routes require auth before any billable call | Auth checked after parsing and enqueueing; free self sign-up (anyone can get a token); one static shared secret guarding bulk work (assume it can leak, so also require a per-call cap) |
 | Library-provided protection | Library source (read for that one question) shows the limit applies on this path | Assumed from docs or defaults without reading the installed version; mark unknown if not installed |
+| Change detection | Scheduled syncs write only rows whose values changed: `ON CONFLICT ... DO UPDATE ... WHERE` the values differ, a stored hash or version compared first, a conditional fetch (`ETag`, `If-Modified-Since`), or a saved cursor on the source's change time | `ON CONFLICT DO UPDATE` with no `WHERE`; `INSERT OR REPLACE`; a hash computed but not compared before the write |
 | Retention and cleanup | Delete, TTL or lifecycle rules on data that grows with traffic | Cleanup job that is itself unbounded (full-table delete every minute) |
 | Platform limits | Subrequest limit, 16-call loop limit, D1 queries per invocation, CPU limits | They bound one invocation, not repeated invocations |
 
