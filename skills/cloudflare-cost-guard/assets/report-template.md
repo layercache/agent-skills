@@ -73,10 +73,6 @@
 
 - <path:line>: <why it is bounded>
 
-## Plan assumptions
-
-<Which plan the code or docs indicate, or "unknown". For findings whose impact differs, say what happens on Free (errors past a daily limit, or not available) and on Workers Paid (billed).>
-
 ## Manual Cloudflare dashboard checklist
 
 <!-- From references/account-controls.md, keep rows relevant to the inventory. -->
