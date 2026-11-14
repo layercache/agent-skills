@@ -60,6 +60,9 @@ Source: [D1 pricing](https://developers.cloudflare.com/d1/platform/pricing/), [D
 - Whether `INSERT … ON CONFLICT DO NOTHING` or `INSERT OR IGNORE` that changes nothing counts as a row written.
 - Whether `AUTOINCREMENT` (the `sqlite_sequence` update) adds a row written.
 - Whether an `UPDATE` that sets a value to what it already was counts.
+- How `INSERT OR REPLACE` is billed. SQLite runs it as a delete of the conflicting row followed by an insert, updating every index for both, so it can cost more than an `UPDATE` of the same row.
+
+Until these are measured, treat a write that changes nothing as billed: a scheduled sync that rewrites unchanged rows ([runaway-patterns.md](runaway-patterns.md), P20) pays its full volume every run.
 
 Each query result's `meta.rows_read` and `meta.rows_written` report the real counts, and the dashboard shows them under Metrics. Suggest measuring an uncertain path that way under "Recommended follow-up", in a non-production database.
 

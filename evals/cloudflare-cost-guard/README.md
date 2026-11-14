@@ -24,6 +24,7 @@ The fixtures are static source code. Nothing here deploys or calls Cloudflare, a
 | `v10-queue-history-scan` | Risky | Per-account queue that caps waiting rows but scans its uncapped history on every request and alarm | High |
 | `v11-cron-no-progress` | Risky | Cron embedding job that marks progress on the wrong column, a harvest that re-inserts the feed, and a KV list auth fallback | Critical, High or Critical, Medium or High |
 | `v12-alarm-refresh-window` | Risky | Durable Object refresh alarm that re-arms at a stored time it never moves forward | Critical |
+| `v13-cron-resync-unchanged` | Risky | Every-minute cron that rewrites a whole supplier catalogue into an indexed D1 table with an `ON CONFLICT DO UPDATE` upsert, changed or not | Medium or High |
 | `s1-bounded-alarm` | Bounded | Alarm with minimum interval, idle shutdown and persisted limits | Nothing above Low |
 | `s2-bounded-queue-consumer` | Bounded | Consumer with `max_retries`, dead letter queue, backoff and idempotency | Nothing above Low |
 | `s3-bounded-d1-batch` | Bounded | Authenticated, rate-limited import capped at 500 rows | Nothing above Low |
@@ -31,6 +32,7 @@ The fixtures are static source code. Nothing here deploys or calls Cloudflare, a
 | `s5-bounded-queue-history` | Bounded | `v10` with indexes that match each hot query and per-user history and device caps | Nothing above Low |
 | `s6-cron-with-progress` | Bounded | `v11` with a unique `source_id`, an index on the pending query, progress marked by primary key and a direct legacy key lookup | Nothing above Low |
 | `s7-bounded-alarm-refresh` | Bounded | `v12` refreshing only after new messages, with a 15-minute alarm floor | Nothing above Low |
+| `s8-cron-resync-changed-only` | Bounded | `v13` fetching only products changed since a saved cursor, with an upsert that skips unchanged rows | Nothing above Low |
 
 Each case folder holds the project plus `expected.json`, which names the expected finding (or the code that must not be flagged), the allowed severities, and an explanation of the execution path. Locations are given as a code snippet rather than a line number, so editing a fixture does not silently break the expectations.
 
@@ -47,7 +49,7 @@ CI does not run an agent. Agent output varies between runs and needs a model API
 
 ## Running the agent eval
 
-Run this before releasing a change to the skill. It costs model usage for 19 audits.
+Run this before releasing a change to the skill. It costs model usage for 21 audits.
 
 ```bash
 cd evals/cloudflare-cost-guard

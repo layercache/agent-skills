@@ -25,6 +25,7 @@ A search hit is only a lead. Confirm every pattern by tracing the path (SKILL.md
 - P17 Data that grows without cleanup
 - P18 One credential unlocks a large fan-out
 - P19 Hot query over data that grows outside a cap
+- P20 Scheduled rewrite of unchanged data
 
 ---
 
@@ -73,7 +74,7 @@ A search hit is only a lead. Confirm every pattern by tracing the path (SKILL.md
 
 - **Leads:** `scheduled\(`, `triggers.*crons`, `SELECT .* FROM \w+\s*(;|"|'|`)` without `LIMIT`, `\.list\(\)` in cron code.
 - **Real when:** each run touches every user, row, object or file, and the data grows without limit; or runs overlap without a lock; or each run re-inserts rows it already has (no unique key on the source's identifier, no `ON CONFLICT` or `INSERT OR IGNORE`), so the table grows on every run. Cost grows every day with no change in code.
-- **False positives:** cursor-based batches with a fixed `LIMIT` per run, incremental processing (`WHERE updated_at > ?`), but only when the job moves the cursor or marks rows processed where the next run's query reads it (SKILL.md, Phase C step 7). A cursor or flag that never advances makes every run repeat the same batch forever; rate that as autonomous and unbounded.
+- **False positives:** cursor-based batches with a fixed `LIMIT` per run, incremental processing (`WHERE updated_at > ?`), but only when the job moves the cursor or marks rows processed where the next run's query reads it (SKILL.md, Phase C step 7). A cursor or flag that never advances makes every run repeat the same batch forever; rate that as autonomous and unbounded. A unique key with `ON CONFLICT DO UPDATE` or `INSERT OR REPLACE` stops the growth but still writes every row on every run: see P20.
 - **Starting severity:** High when every row triggers a billable operation (AI, R2, external API); Medium for reads only.
 
 ## P8 Unbounded fan-out per request
@@ -85,7 +86,7 @@ A search hit is only a lead. Confirm every pattern by tracing the path (SKILL.md
 ## P9 Database operations in loops (N+1) and full-table writes
 
 - **Leads:** `\.prepare\(` or ORM calls inside `for`/`map`; `UPDATE \w+ SET` without `WHERE`; `DELETE FROM \w+` without `WHERE`; `sql\.exec\(` in loops; `storage\.list\(\)` without `limit`.
-- **Real when:** row count is unbounded and the path runs often. D1 and Durable Object SQLite bill rows scanned, so an unindexed filter on a hot path also counts; when the table keeps growing, see P19.
+- **Real when:** row count is unbounded and the path runs often (for a fixed row count rewritten on a schedule, see P20). D1 and Durable Object SQLite bill rows scanned, so an unindexed filter on a hot path also counts; when the table keeps growing, see P19.
 - **Starting severity:** Medium; High when scheduled and over the whole table.
 
 ## P10 Write on every request
@@ -150,3 +151,10 @@ A search hit is only a lead. Confirm every pattern by tracing the path (SKILL.md
 - **Real when:** a query that runs per request, per alarm or per cron run reads rows that keep accumulating, and nothing bounds what it reads: no `LIMIT` it can stop at, no index that skips the accumulated rows, no cap on the whole table. A `list()` loop over a growing KV, R2 or storage prefix on a request path is the same shape: each request pays one list operation per page, and when unauthenticated requests reach it (a fallback that runs when a key lookup misses), anyone sets the volume. The usual shape is a cap on waiting or active rows while finished, cancelled or delivered rows are kept as history, so the queue looks bounded and the table is not. Check the data growth inventory (SKILL.md, Phase A) for what adds and removes the rows, and the schema for which index the filter can use. An index on a different column order (for example `(owner_id, created_at)` for a filter on `owner_id` and `status`) still reads every row for that user.
 - **False positives:** an index whose leading columns match the filter so the query reads only the capped rows; a cap on the whole table (all states) that keeps it small; a `LIMIT` the query can stop at, such as `ORDER BY` on an indexed column; data that only the operator writes.
 - **Starting severity:** High when the caller can add the rows the query reads (see the calibration rule for cost that grows with the caller's own data); Medium when only time or ordinary use grows them; raise to Critical only with P1 or P7, when an autonomous path reads the data and nothing stops the growth.
+
+## P20 Scheduled rewrite of unchanged data
+
+- **Leads:** `INSERT OR REPLACE`, `REPLACE INTO`, `ON CONFLICT\s*\(.*\)\s*DO UPDATE SET` with no `WHERE` after the `SET` list, ORM upserts (`onConflictDoUpdate(`, `\.upsert\(`, `\.onConflict\(.*\)\.merge\(`), `UPDATE \w+ SET` per item of a fetched list, `db\.batch\(` over a whole feed or catalogue, and KV, R2 or Durable Object `put(` of every key in a snapshot, inside `scheduled`, `alarm`, queue consumers or functions named `sync`, `refresh`, `mirror`, `import` or `reconcile`. Look for what is missing: no `ETag`, `If-None-Match` or `If-Modified-Since` on the upstream fetch, no stored hash or version compared before writing, no `WHERE updated_at > ?` cursor on the source.
+- **Real when:** a repeating path writes every row or key of a dataset on each run whether or not its values changed, and the schedule makes the steady volume large (SKILL.md, Phase C step 8). The table does not need to grow: a fixed dataset of a few thousand rows rewritten every minute costs the same every month, and indexes multiply it. In SQLite, `INSERT OR REPLACE` deletes the conflicting row and inserts a new one, so every index is updated for both; `ON CONFLICT DO UPDATE` with no `WHERE` rewrites the row even when every value is the same. How D1 bills those cases is not documented ([pricing-and-limits.md](pricing-and-limits.md)); describe the mechanism, treat the rewrite as billed and list measuring it as follow-up. Reads add up the same way when each run also loads the whole dataset to compare it.
+- **False positives:** a conditional upsert (`DO UPDATE SET ... WHERE excluded.col IS NOT col`, or a stored content hash compared first); a conditional fetch that skips the run when the source returns 304 or the same `ETag`; an incremental sync on the source's change time with the cursor saved where the next run reads it; `ON CONFLICT DO NOTHING` on an append-only feed, which writes only new items; a schedule rare enough that the steady volume stays well inside the included allowance.
+- **Starting severity:** Medium; High when the steady volume passes 10× the included allowance at the stated dataset size, or when the schedule runs every few minutes or faster and the dataset size cannot be seen. When the dataset also grows, combine with P7 and rate by P7.

@@ -28,7 +28,7 @@ Mechanisms summarized from Cloudflare's developer documentation, checked 2026-10
 - **Config:** `d1_databases`.
 - **Code signals:** `env.DB.prepare(`, `.bind(`, `.run()`, `.all()`, `.first()`, `.raw()`, `db.batch(`, `db.exec(`, ORM calls (`drizzle`, `kysely`), `meta.rows_read`.
 - **Platform bounds:** queries per invocation, 30-second query duration, database size cap.
-- **Runaway shapes:** queries inside loops (N+1), full-table `UPDATE`/`DELETE` without `WHERE` on a schedule, `SELECT *` scans without an index on hot paths, unbounded imports, writes triggered by background tasks that re-trigger themselves.
+- **Runaway shapes:** queries inside loops (N+1), full-table `UPDATE`/`DELETE` without `WHERE` on a schedule, scheduled syncs that upsert or `INSERT OR REPLACE` a whole dataset on every run whether or not it changed, `SELECT *` scans without an index on hot paths, unbounded imports, writes triggered by background tasks that re-trigger themselves.
 - Docs: [pricing](https://developers.cloudflare.com/d1/platform/pricing/), [limits](https://developers.cloudflare.com/d1/platform/limits/).
 
 ## Workers KV

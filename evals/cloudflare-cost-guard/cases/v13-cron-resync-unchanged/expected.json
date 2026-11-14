@@ -1,0 +1,19 @@
+{
+  "kind": "vulnerable",
+  "summary": "Every-minute cron that upserts the whole supplier catalogue into an indexed D1 table with ON CONFLICT DO UPDATE, whether or not anything changed.",
+  "expected_findings": [
+    {
+      "id": "cron-rewrites-unchanged-catalogue",
+      "service": "D1",
+      "file": "src/sync.ts",
+      "contains": "ON CONFLICT(sku) DO UPDATE SET",
+      "severity": [
+        "Medium",
+        "High"
+      ],
+      "autonomous": true,
+      "explanation": "syncCatalogue() runs every minute, pages through the whole supplier catalogue and upserts every product. sku is the primary key, so the table does not grow, but the DO UPDATE has no WHERE, so every row is rewritten on every run and three secondary indexes are updated with it; synced_at changes on every run, so no row is ever unchanged. There is no ETag or If-Modified-Since on the fetch and no comparison with stored values. At 3,000 products that is up to 3,000 x 4 rows written x 43,200 runs, about 518M rows written per month, roughly 10x the 50M included on Workers Paid, every month, with no users."
+    }
+  ],
+  "must_not_flag": []
+}
