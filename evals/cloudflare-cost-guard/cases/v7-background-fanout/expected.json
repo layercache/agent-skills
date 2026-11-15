@@ -20,7 +20,7 @@
         "Critical"
       ],
       "autonomous": true,
-      "explanation": "The cron runs 288 times a day and, for every user with no LIMIT or batching, reads KV, scans that user's full activity history in D1, runs an AI summary over all of it, writes a new R2 object, inserts a D1 row and enqueues an email. Cost grows with users x history x 288 per day, with no change detection, and Promise.all fans out every user at once."
+      "explanation": "The cron runs 288 times a day and, for every user with no LIMIT or batching, reads KV, scans that user's full activity history in D1, runs an AI summary over all of it, writes a new R2 object, inserts a D1 row and enqueues an email. There is no change detection, and Promise.all starts every user at once. One run cannot grow without limit: D1 allows 1,000 queries per invocation, about 500 users at two queries each, and Workers AI's default limit is 300 text-generation requests a minute, so the fan-out stops growing with users after a few hundred. What keeps growing is the history: every run reads each user's full activity again, 288 times a day, and nothing stops that, so the cost rate has no limit."
     }
   ],
   "must_not_flag": []

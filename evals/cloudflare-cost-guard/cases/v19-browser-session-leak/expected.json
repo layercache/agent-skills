@@ -16,7 +16,8 @@
         "High"
       ],
       "autonomous": true,
-      "explanation": "captureAll() launches one browser per page and never calls browser.close(), so each session stays open until its inactivity timeout, which keep_alive sets to 10 minutes. 12 launches every 5 minutes, each billed about 10 minutes, is about 2 browser hours per run and about 576 hours a day: roughly 17,000 browser hours a month against 10 included, about $1,550 a month at $0.09 an hour, plus about 24 concurrent browsers against 10 included. The rate is fixed (12 pages on a fixed schedule), so it is a repeating path at a fixed rate, far above about $100 a month: High, with no users."
+      "explanation": "captureAll() launches one browser per page and never calls browser.close(), so each session stays open until its inactivity timeout, which keep_alive sets to 10 minutes. 12 launches every 5 minutes, each billed about 10 minutes, is about 2 browser hours per run and about 576 hours a day: roughly 17,000 browser hours a month against 10 included, about $1,550 a month at $0.09 an hour, plus about 24 concurrent browsers against 10 included. The rate is fixed (12 pages on a fixed schedule), so it is a repeating path at a fixed rate, far above about $100 a month: High, with no users.",
+      "monthly_usd": 1554
     }
   ],
   "may_flag": [
