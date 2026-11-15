@@ -250,8 +250,51 @@ def owns(finding: dict, anchor: dict, expected: list[dict]) -> bool:
     return True
 
 
+def pair_up(options: list[list[int]]) -> dict[int, int]:
+    """Give each expected finding a reported finding of its own, for as many as possible.
+
+    options[e] lists the reported findings that satisfy expected finding e. A reported
+    finding is used once, so one that sits exactly on two expected findings counts for
+    only one of them. Returns {expected index: finding index}.
+    """
+    used: dict[int, int] = {}  # finding index -> expected index
+
+    def place(e: int, seen: set[int]) -> bool:
+        for f in options[e]:
+            if f in seen:
+                continue
+            seen.add(f)
+            # Take a free finding, or one whose current expected finding can use another.
+            if f not in used or place(used[f], seen):
+                used[f] = e
+                return True
+        return False
+
+    for e in range(len(options)):
+        place(e, set())
+    return {e: f for f, e in used.items()}
+
+
 def label(finding: dict) -> str:
     return f"{finding.get('severity')} {finding.get('title', '')!r} at {finding.get('file')}:{finding.get('line')}"
+
+
+def field_problems(finding: dict, anchor: dict) -> list[str]:
+    """What is wrong with the finding's exposure, where the case names one."""
+    problems = []
+    allowed = anchor.get("exposure")
+    if allowed and finding.get("exposure") not in allowed:
+        problems.append(f"exposure {finding.get('exposure')!r}, expected one of {allowed}")
+    return problems
+
+
+def fits(finding: dict, anchor: dict) -> bool:
+    """True if the finding satisfies the expected finding in full: severity, autonomous flag and named fields."""
+    return (
+        finding.get("severity") in anchor["severity"]
+        and bool(finding.get("autonomous")) == bool(anchor["autonomous"])
+        and not field_problems(finding, anchor)
+    )
 
 
 def grade_detail(case_dir: Path, report_text: str) -> dict:
@@ -268,31 +311,38 @@ def grade_detail(case_dir: Path, report_text: str) -> dict:
     ok = True
     all_anchors = anchors(case_dir, case)
     expected = [a for a in all_anchors if a["role"] == "expect"]
-    claimed: set[int] = set()
+    # Each expected finding needs a reported finding of its own. A finding that is equally
+    # near two expected findings is owned by both, so pair them up before judging either.
+    owners = [[i for i, f in enumerate(findings) if owns(f, a, expected)] for a in expected]
+    paired = pair_up([[i for i in mine if fits(findings[i], a)] for mine, a in zip(owners, expected)])
+    used = {f: e for e, f in paired.items()}
+    claimed: set[int] = {i for mine in owners for i in mine}
 
-    for anchor in expected:
-        matches = [i for i, f in enumerate(findings) if owns(f, anchor, expected)]
-        claimed.update(matches)
-        matched = [findings[i] for i in matches]
-        hits = [f for f in matched if f.get("severity") in anchor["severity"]]
+    for e, anchor in enumerate(expected):
+        if e in paired:
+            hit = findings[paired[e]]
+            result["found"][anchor["id"]] = hit.get("severity")
+            notes.append(f"found {anchor['id']} as {hit.get('severity')} ({hit.get('id')})")
+            continue
+        ok = False
+        spare = [findings[i] for i in owners[e] if i not in used]
+        hits = [f for f in spare if f.get("severity") in anchor["severity"]]
         good = [f for f in hits if bool(f.get("autonomous")) == bool(anchor["autonomous"])]
-        result["found"][anchor["id"]] = (good or hits or matched or [{"severity": "missed"}])[0].get("severity")
+        result["found"][anchor["id"]] = (good or hits or spare or [{"severity": "missed"}])[0].get("severity")
         if good:
-            allowed = anchor.get("exposure")
-            if allowed and not any(f.get("exposure") in allowed for f in good):
-                ok = False
-                notes.append(f"{anchor['id']}: exposure {good[0].get('exposure')!r}, expected one of {allowed}")
-            else:
-                notes.append(f"found {anchor['id']} as {good[0].get('severity')} ({good[0].get('id')})")
+            notes.append(f"{anchor['id']}: {min((field_problems(f, anchor) for f in good), key=len)[0]}")
         elif hits:
-            ok = False
             notes.append(f"{anchor['id']}: autonomous should be {anchor['autonomous']}")
-        elif matched:
-            ok = False
-            got = ", ".join(str(f.get("severity")) for f in matched)
+        elif spare:
+            got = ", ".join(str(f.get("severity")) for f in spare)
             notes.append(f"{anchor['id']}: severity {got}, expected one of {anchor['severity']}")
+        elif owners[e]:
+            taken = expected[used[owners[e][0]]]["id"]
+            notes.append(
+                f"missed {anchor['id']} at {anchor['file']}:{anchor['line']}: "
+                f"the finding there already counts as {taken}, and one finding cannot cover two"
+            )
         else:
-            ok = False
             unlined = [f for f in findings if distance(f, anchor, unlined=True) is not None]
             hint = " (a finding names the file but gives no line number)" if unlined else ""
             notes.append(f"missed {anchor['id']} at {anchor['file']}:{anchor['line']}{hint}")
@@ -478,6 +528,17 @@ def self_test() -> list[str]:
                 moved = [f if j != i else {**f, "file": file, "line": line} for j, f in enumerate(perfect)]
                 if not passes(moved):
                     errors.append(f"{name}: {anchor['id']} cited at {file}:{line} did not match")
+            for j, other in enumerate(expected):
+                if j == i:
+                    continue
+                # A finding on this anchor that also lists the exact line of another one is
+                # equally near both. It counts for one, so the other still needs its own.
+                both = {**perfect[i], "locations": [{"file": other["file"], "line": other["line"]}]}
+                rest = [f for k, f in enumerate(perfect) if k not in (i, j)]
+                if passes([both] + rest):
+                    errors.append(f"{name}: one finding on {anchor['id']} and {other['id']} satisfied both")
+                if not passes([both, perfect[j]] + rest):
+                    errors.append(f"{name}: a finding on two anchors kept {other['id']} from its own")
             others = [b for b in expected if b is not anchor and b["file"] == anchor["file"]]
             if not others:
                 continue
