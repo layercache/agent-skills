@@ -2,7 +2,7 @@
 
 How each Cloudflare product is billed and what to look for in code. This file describes **mechanisms**, which change rarely. Numbers (included usage, rates, limits) are in [pricing-and-limits.md](pricing-and-limits.md), which is dated and must be treated as a snapshot.
 
-Mechanisms summarized from Cloudflare's developer documentation, checked 2026-10-10. Links are at the end of each section.
+Mechanisms summarized from Cloudflare's developer documentation, checked 2026-11-15. Links are at the end of each section.
 
 ## Workers (and Pages Functions)
 
@@ -11,7 +11,8 @@ Mechanisms summarized from Cloudflare's developer documentation, checked 2026-10
 - **Code signals:** `export default { fetch, scheduled, queue, email, tail }`, `ctx.waitUntil(`, `fetch(` to own hostname or `request.url`, `env.<SERVICE>.fetch(`, RPC calls on service bindings, Hono/itty-router route tables, `functions/**` and `_worker.js` for Pages.
 - **Platform bounds:** per-invocation subrequest limit, CPU limit (configurable on Paid), 128 MB memory, a loop limit of 16 Worker-to-Worker calls in one chain (error 1019), `waitUntil` work cut off about 30 seconds after the response. These cap one invocation, not how many invocations happen.
 - **Runaway shapes:** self-fetch recursion with fan-out, retry loops around subrequests, unauthenticated endpoints that trigger expensive downstream work, `waitUntil` fan-out per request.
-- **Also billed:** Workers Logs events and Logpush; very chatty logging inside loops increases log volume.
+- **Also billed:** Workers Logs and Logpush. Logs are billed by event count until 2026-11-30 and by size ingested and stored from 2026-12-01, so very chatty logging inside loops costs more the larger each line is.
+- **Account backstop:** an optional Workers spending limit rejects new invocations (HTTP, cron, queue consumers, Email Workers) once request and CPU charges reach a threshold. It is account-wide and does not count what the Worker spends in other products ([account-controls.md](account-controls.md)).
 - Docs: [pricing](https://developers.cloudflare.com/workers/platform/pricing/), [limits](https://developers.cloudflare.com/workers/platform/limits/), [errors](https://developers.cloudflare.com/workers/observability/errors/).
 
 ## Durable Objects
@@ -20,7 +21,8 @@ Mechanisms summarized from Cloudflare's developer documentation, checked 2026-10
 - **Config:** `durable_objects.bindings`, `migrations` with `new_sqlite_classes` (SQLite) or `new_classes` (legacy key-value storage).
 - **Code signals:** `extends DurableObject`, `ctx.storage.setAlarm`, `alarm(`, `ctx.storage.sql.exec`, `ctx.storage.put/get/list/delete`, `idFromName(`, `newUniqueId(`, `ctx.acceptWebSocket`, `setWebSocketAutoResponse`, `blockConcurrencyWhile`.
 - **Runaway shapes:** self-rescheduling alarms (see [durable-object-alarms.md](durable-object-alarms.md)), objects kept awake by timers or polling, per-request object creation with alarms, `storage.list()` without `limit` on growing data, WebSocket broadcast loops that wake many objects.
-- Docs: [pricing](https://developers.cloudflare.com/durable-objects/platform/pricing/), [alarms](https://developers.cloudflare.com/durable-objects/api/alarms/).
+- **Account backstop:** an optional Durable Objects spending limit rejects new requests, SQL and `setAlarm()` calls once requests, duration and storage operations reach a threshold. It does not block messages on WebSockets that are already open ([account-controls.md](account-controls.md)).
+- Docs: [pricing](https://developers.cloudflare.com/durable-objects/platform/pricing/), [alarms](https://developers.cloudflare.com/durable-objects/api/alarms/), [spending limits](https://developers.cloudflare.com/durable-objects/platform/spend-management/).
 
 ## D1
 
@@ -59,12 +61,12 @@ Mechanisms summarized from Cloudflare's developer documentation, checked 2026-10
 
 ## Workflows
 
-- **Billed on:** requests and CPU time like Workers, plus stored state and steps (step billing start is announced separately by Cloudflare).
+- **Billed on:** requests and CPU time like Workers, plus stored state and steps (billed from 2026-08-10). A request is one new instance; retries do not count as steps.
 - **Config:** `workflows` bindings.
 - **Code signals:** `extends WorkflowEntrypoint`, `step.do(`, `step.sleep(`, `step.waitForEvent(`, `env.<WF>.create(`, `createBatch(`, `NonRetryableError`, step `retries` config.
 - **Behavior:** steps without a config retry 5 times with exponential backoff from 10 seconds and a 10-minute timeout; up to 10,000 retries per step can be configured.
 - **Runaway shapes:** a workflow that creates another instance of itself at the end ("loop by re-creation"), very high step retry limits on steps that call metered APIs, `create()` per incoming event with no deduplication (`id` not set), long `step.sleep` loops that never terminate.
-- Docs: [sleeping and retrying](https://developers.cloudflare.com/workflows/build/sleeping-and-retrying/), [limits](https://developers.cloudflare.com/workflows/reference/limits/).
+- Docs: [pricing](https://developers.cloudflare.com/workflows/reference/pricing/), [sleeping and retrying](https://developers.cloudflare.com/workflows/build/sleeping-and-retrying/), [limits](https://developers.cloudflare.com/workflows/reference/limits/).
 
 ## Cron Triggers
 
@@ -77,18 +79,18 @@ Mechanisms summarized from Cloudflare's developer documentation, checked 2026-10
 ## Workers AI and AI Gateway
 
 - **Workers AI is billed on** Neurons; the rate per token differs per model. On the Free plan, usage past the daily allocation fails with an error.
-- **AI Gateway** core features (analytics, caching, rate limiting) are free; provider tokens are billed by the provider (or through Unified Billing). Logs have storage limits and may move to Workers Logs pricing.
+- **AI Gateway** core features (analytics, caching, rate limiting) are free; provider tokens are billed by the provider (or through Unified Billing). Gateway logs are stored in Workers Logs, at its pricing, for accounts whose first gateway dates from 2026-09-24 or later. Spend limits set a dollar budget per gateway, user or model, but only for calls routed through the gateway.
 - **Config:** `ai` binding; AI Gateway IDs in code (`gateway: { id }`) or gateway URLs.
 - **Code signals:** `env.AI.run(`, `gateway:` options, `@cf/` model IDs, `openai`/`@anthropic-ai/sdk` clients, `agents` SDK (`Agent`, `AIChatAgent`), tool-calling loops.
 - **Runaway shapes:** agent loops with no maximum iteration count or token budget, re-summarizing all data on a schedule, retries on model errors without a cap, AI calls per item in a growing list, no `max_tokens`.
-- Docs: [Workers AI pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/), [AI Gateway pricing](https://developers.cloudflare.com/ai-gateway/reference/pricing/), [AI Gateway rate limiting](https://developers.cloudflare.com/ai-gateway/features/rate-limiting/).
+- Docs: [Workers AI pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/), [AI Gateway pricing](https://developers.cloudflare.com/ai-gateway/reference/pricing/), [AI Gateway rate limiting](https://developers.cloudflare.com/ai-gateway/features/rate-limiting/), [AI Gateway spend limits](https://developers.cloudflare.com/ai-gateway/features/spend-limits/).
 
 ## Browser Run (formerly Browser Rendering)
 
 - **Billed on:** browser hours for all methods, plus concurrent browsers (averaged monthly) for Browser Sessions (Puppeteer, Playwright, CDP). Quick Actions (REST endpoints) are billed on browser hours only.
 - **Config:** `browser` binding.
 - **Code signals:** `puppeteer.launch(env.BROWSER`, `@cloudflare/playwright`, `keep_alive`, `browser.close()`, `puppeteer.connect`, `sessions()`, Quick Actions REST calls (`/browser-rendering/` or `/browser-run/` endpoints).
-- **Behavior:** a browser closes after 60 seconds of inactivity by default; `keep_alive` extends this to at most 10 minutes. Sessions keep running while active.
+- **Behavior:** a browser closes after 60 seconds of inactivity by default; `keep_alive` extends this to at most 20 minutes. A session has no maximum lifetime while it stays active, so a command sent inside the window keeps it open and billing.
 - **Runaway shapes:** `launch()` without `close()` in a `finally`, keeping sessions alive from alarms, crawling without a page cap, launching a browser per item in a loop.
 - Docs: [Browser Run](https://developers.cloudflare.com/browser-run/), [pricing](https://developers.cloudflare.com/browser-run/pricing/), [limits](https://developers.cloudflare.com/browser-run/limits/).
 
@@ -96,14 +98,15 @@ Mechanisms summarized from Cloudflare's developer documentation, checked 2026-10
 
 - **Billed on:** every 10 ms a container instance is running: memory and disk on the provisioned instance type, CPU on active use, plus egress. Each container also has a Durable Object, billed separately. Workers Paid only.
 - **Config:** `containers` (class, image, `instance_type`, `max_instances`), Durable Object binding for the container class.
-- **Code signals:** `extends Container`, `sleepAfter`, `renewActivityTimeout()`, `getContainer(`, `getRandom(`, `startAndWaitForPorts(`, `onStart`/`onStop`/`onError`.
-- **Behavior:** an instance runs until `sleepAfter` elapses with no activity (default 10 minutes in the `@cloudflare/containers` package) or until it is stopped. Incoming requests and `renewActivityTimeout()` reset the timer. Scaling is manual (by instance ID).
-- **Runaway shapes:** very long `sleepAfter`, `renewActivityTimeout()` called from a timer or alarm, health-check pings that keep instances awake, `onError` restarting in a loop, instance IDs derived from user input (unbounded instance count), large instance types for light work.
-- Docs: [pricing](https://developers.cloudflare.com/containers/pricing/), [Container package](https://developers.cloudflare.com/containers/container-package/), [scaling and routing](https://developers.cloudflare.com/containers/platform-details/scaling-and-routing/).
+- **Code signals, Durable Object Container API:** `this.ctx.container`, `container.start(`, `setInactivityTimeout(`, `getTcpPort(`, `monitor(`, `destroy(`, `signal(`, `getByName(` on the container's namespace.
+- **Code signals, deprecated `@cloudflare/containers` package:** `extends Container`, `sleepAfter`, `renewActivityTimeout()`, `getContainer(`, `getRandom(`, `startAndWaitForPorts(`, `onStart`/`onStop`/`onError`. Cloudflare has deprecated the package; many projects still use it.
+- **Behavior:** with the Durable Object Container API, Cloudflare stops the container shortly after its Durable Object becomes inactive, unless `setInactivityTimeout()` extends that (up to 6 hours). Any request the Durable Object handles inside the timeout keeps the same container running. With the deprecated `Container` class, an instance runs until `sleepAfter` passes with no activity or until it is stopped; incoming requests and `renewActivityTimeout()` reset the timer. Scaling is manual (by instance name).
+- **Runaway shapes:** an inactivity timeout or `sleepAfter` of hours, an alarm, timer or health-check ping that keeps the Durable Object active so its container never stops, `renewActivityTimeout()` called from a timer or alarm, a start or restart in a loop (`onError`, or `start()` from an alarm that reschedules itself), instance names derived from user input (unbounded instance count), large instance types for light work.
+- Docs: [pricing](https://developers.cloudflare.com/containers/pricing/), [Durable Object Container API](https://developers.cloudflare.com/containers/api/durable-object-container/), [migrating from the Container class](https://developers.cloudflare.com/containers/guides/migrate-to-durable-object-container-api/), [scaling and routing](https://developers.cloudflare.com/containers/platform-details/scaling-and-routing/).
 
 ## Hyperdrive
 
-- **Billed on:** no per-query charge on Workers Paid; the Free plan has a daily query limit after which queries fail. Cost risk is on the **origin database** (its own provider's billing, connection limits and egress), not Hyperdrive itself.
+- **Billed on:** no per-query charge on Workers Paid; the Free plan has a daily query limit after which queries fail. Cost risk is on the **origin database** (its own provider's billing, connection limits and egress), not Hyperdrive itself. A PlanetScale database created from the Cloudflare dashboard is billed on the Cloudflare invoice.
 - **Config:** `hyperdrive`.
 - **Code signals:** `env.HYPERDRIVE.connectionString`, `postgres(`, `pg`, `mysql2`.
 - **Runaway shapes:** query loops that hammer a metered origin database (serverless Postgres billed per compute time), connection churn per request.

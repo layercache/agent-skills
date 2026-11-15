@@ -50,7 +50,7 @@ Many agents also let you call a skill by name (for example `/cloudflare-cost-gua
 
 ## Cloudflare Cost Guard
 
-On Workers Paid, the monthly subscription is a minimum, not a spending limit. A Durable Object alarm that reschedules itself, or a queue consumer that re-sends its own failures, keeps running and keeps billing with nobody using the app. Cost Guard looks for those paths in your code before your invoice does.
+On Workers Paid, the monthly subscription is a minimum, not a spending limit. Cloudflare's optional spending limits cover only Workers and Durable Objects, do nothing until you set them, and can be passed before they take effect. A Durable Object alarm that reschedules itself, or a queue consumer that re-sends its own failures, keeps running and keeps billing with nobody using the app. Cost Guard looks for those paths in your code before your invoice does.
 
 **What it audits:** Workers and Pages Functions, Durable Objects (alarms, SQLite and key-value storage), D1, KV, R2, Queues, Workflows, Cron Triggers, Workers AI, AI Gateway, Browser Run, Containers, Hyperdrive, Vectorize and Email Service, plus loops that call metered third-party APIs, public routes anyone can use to drive cost (including `workers.dev` and preview URLs), and admin routes behind a single shared secret.
 
@@ -73,7 +73,7 @@ On Workers Paid, the monthly subscription is a minimum, not a spending limit. A 
 
 **Safety:** the skill is read-only. It does not edit your code, deploy, run your scripts or tests, call your endpoints, or need Cloudflare credentials. It does not write fixes. Any fix changes exactly the code that can generate cost, so review it carefully and test it in a non-production account before deploying.
 
-**Limitations:** it is a static review. It cannot see your account settings, traffic or code outside the repository, and it can miss problems or flag bounded code. Pricing in the skill is a dated snapshot; the agent confirms current figures at developers.cloudflare.com when it has network access. A clean report does not mean your application cannot generate unexpected cost. Set budget alerts in Cloudflare, and remember they notify you but do not stop usage.
+**Limitations:** it is a static review. It cannot see your account settings, traffic or code outside the repository, and it can miss problems or flag bounded code. Pricing in the skill is a dated snapshot; the agent confirms current figures at developers.cloudflare.com when it has network access. A clean report does not mean your application cannot generate unexpected cost. Set budget alerts in Cloudflare, which notify you but do not stop usage, and consider a spending limit for Workers and Durable Objects, which blocks those products at a threshold but is not a maximum bill.
 
 ## Repository layout
 

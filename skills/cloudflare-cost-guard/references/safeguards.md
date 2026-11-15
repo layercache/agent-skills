@@ -43,5 +43,5 @@ For each safeguard you find, answer all of these:
 
 - **Verified in code:** you read it on the path and it passed the checklist. Cite file:line.
 - **Platform-enforced:** a documented Cloudflare limit applies. Cite the doc and say what it does not bound.
-- **Account setting, verify manually:** for example budget alerts, `limits.cpu_ms` set in the dashboard, queue settings changed outside the repo.
+- **Account setting, verify manually:** for example a Workers or Durable Objects spending limit, AI Gateway spend limits, budget alerts, `limits.cpu_ms` set in the dashboard, queue settings changed outside the repo. An account setting never lowers a finding's severity, because the repository cannot show whether it is set.
 - **Unknown:** you could not determine it from the repository.

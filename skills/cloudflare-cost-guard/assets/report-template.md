@@ -3,7 +3,7 @@
 <!-- Keep headings in this order and remove these comments. Drop a section that would be empty, except "At a glance", "Findings" (write "None"), "Before you change anything" and "Machine-readable summary". -->
 
 **Repository:** <name or path> · **Branch:** <branch, or "not a Git checkout"> · **Commit:** <short SHA, or "not a Git checkout"> · **Date:** <YYYY-MM-DD>
-**Pricing data:** <one of: "all figures confirmed at developers.cloudflare.com on YYYY-MM-DD" · "bundled snapshot dated 2026-10-10, not re-verified" · "mixed: confirmed on YYYY-MM-DD for <products>; snapshot for <products>">
+**Pricing data:** <one of: "all figures confirmed at developers.cloudflare.com on YYYY-MM-DD" · "bundled snapshot dated 2026-11-15, not re-verified" · "mixed: confirmed on YYYY-MM-DD for <products>; snapshot for <products>">
 
 ## At a glance
 
@@ -11,7 +11,7 @@
 
 - **Overall risk:** <Critical | High | Medium | Low | None> · <n> Critical · <n> High · <n> Medium · <n> Low <!-- the highest as-deployed finding severity; "None" when there are no findings -->
 - **Autonomous runaway paths:** <Yes (n) | No> <!-- autonomous findings rated High or Critical -->
-- **Worst finding at a stated rate:** <CG-n: operations per stated volume × documented rate, e.g. "per 1M junk requests: ~2M D1 rows written ≈ $2 at $1.00/M (snapshot 2026-10-10)"; or "no findings">
+- **Worst finding at a stated rate:** <CG-n: operations per stated volume × documented rate, e.g. "per 1M junk requests: ~2M D1 rows written ≈ $2 at $1.00/M (snapshot 2026-11-15)"; or "no findings">
 - **Changes since <previous commit>:** <n new (CG-n …) · n fixed (title …) · n re-rated (CG-n: old → new, reason) · n unchanged> <!-- only when the user provided a previous report; otherwise omit this line -->
 
 | # | Action | Fixes | Where | When |
@@ -103,7 +103,7 @@
 
 This audit is a static review of source code. It cannot see your account settings, your traffic, or code that is not in this repository, and it can miss problems.
 
-Any fix for these findings changes exactly the code paths that can generate cost. Whether you write the fix yourself or ask an AI agent to, review every change line by line, test it in a non-production Cloudflare account with budget alerts set, and watch usage after deploying. Budget alerts notify you; they do not stop usage. After making changes, run this audit again on the changed code.
+Any fix for these findings changes exactly the code paths that can generate cost. Whether you write the fix yourself or ask an AI agent to, review every change line by line, test it in a non-production Cloudflare account with budget alerts set, and watch usage after deploying. Budget alerts notify you; they do not stop usage. A spending limit for Workers or Durable Objects blocks that product once it takes effect, but it is account-wide, can be passed before it applies, and covers no other product. After making changes, run this audit again on the changed code.
 
 ## Machine-readable summary
 

@@ -1,12 +1,14 @@
 # Pricing and limits snapshot
 
-> **Time-sensitive.** Figures below were copied from Cloudflare's documentation on **2026-10-10** (Workers AI on **2026-11-14**) and will change. Before quoting a number in a report, confirm it at the linked source if you have network access, and always state the date of the figure you used. If you cannot confirm it, say "per Cloudflare docs as of 2026-10-10" or describe the mechanism without a number. Dollar figures appear only as a "cost at a stated rate" (an operation count at a stated volume times a documented rate, with its date), never as a total bill or anything the user could mistake for a quote.
+<!-- snapshot: 2026-11-15 -->
 
-All prices in USD. "Paid" means the Workers Paid plan, which has a $5/month account minimum. That minimum is **not** a spending cap: usage beyond the included amounts is billed.
+> **Time-sensitive.** Figures below were checked against Cloudflare's documentation on **2026-11-15** (the Workers AI model rates on **2026-11-14**) and will change. Before quoting a number in a report, confirm it at the linked source if you have network access, and always state the date of the figure you used. If you cannot confirm it, say "per Cloudflare docs as of 2026-11-15" or describe the mechanism without a number. Dollar figures appear only as a "cost at a stated rate" (an operation count at a stated volume times a documented rate, with its date), never as a total bill or anything the user could mistake for a quote.
+
+All prices in USD. "Paid" means the Workers Paid plan, which has a $5/month account minimum. That minimum is **not** a spending cap: usage beyond the included amounts is billed. Optional spending limits exist for Workers and Durable Objects only; see "Account-level controls" at the end.
 
 ## Workers
 
-Source: [Workers pricing](https://developers.cloudflare.com/workers/platform/pricing/) (page updated 2026-10-02), [Workers limits](https://developers.cloudflare.com/workers/platform/limits/) (page updated 2026-10-08).
+Source: [Workers pricing](https://developers.cloudflare.com/workers/platform/pricing/) (page updated 2026-11-13), [Workers limits](https://developers.cloudflare.com/workers/platform/limits/) (page updated 2026-11-13), [Observability pricing](https://developers.cloudflare.com/observability/pricing/) (page updated 2026-11-11).
 
 | Item | Free | Paid |
 | ---- | ---- | ---- |
@@ -19,11 +21,14 @@ Source: [Workers pricing](https://developers.cloudflare.com/workers/platform/pri
 | Duration limit for Cron, DO alarm, Queue consumer | 15 min | 15 min |
 | `waitUntil()` after response | ~30 s | ~30 s |
 | Cron Triggers per account | 5 | 250 |
-| Workers Logs | 200,000 events/day | 20M events/month, then $0.60/M (moves to Observability pricing from 2026-12-01) |
+| Workers Logs, until 2026-11-30 | 200,000 events/day | 20M events/month, then $0.60/M |
+| Workers Logs, from 2026-12-01 | 0.5 GB ingested/day, then ingestion stops | 50 GB ingested and 10 GB-month stored per billing cycle, then $0.25/GB ingested and $0.10/GB-month stored |
+
+Workers Logs moves to Cloudflare Observability pricing on 2026-12-01: it is billed by the uncompressed size of the events, not their count, and the included amounts are shared with traces, Containers logs and AI Gateway logs. Logs are kept seven days, so each GB ingested adds about 0.23 GB-month of storage. Use the row that applies on the date of the report, and say which one you used.
 
 ## Durable Objects
 
-Source: [Durable Objects pricing](https://developers.cloudflare.com/durable-objects/platform/pricing/), [Workers pricing](https://developers.cloudflare.com/workers/platform/pricing/). Duration is billed at 128 MB per object regardless of memory used; each `setAlarm()` is billed as one row written.
+Source: [Durable Objects pricing](https://developers.cloudflare.com/durable-objects/platform/pricing/) (page updated 2026-11-13), [limits](https://developers.cloudflare.com/durable-objects/platform/limits/). Duration is billed at 128 MB per object regardless of memory used; each `setAlarm()` is billed as one row written. Billable usage is rounded up to the next billable unit before the rate applies (500,000 GB-s over the allowance is billed as 1M GB-s).
 
 | Item | Free | Paid |
 | ---- | ---- | ---- |
@@ -34,11 +39,11 @@ Source: [Durable Objects pricing](https://developers.cloudflare.com/durable-obje
 | SQLite storage | 5 GB total | 5 GB-month, then $0.20/GB-month |
 | Legacy KV-backed storage (Paid only) | n/a | reads 1M units then $0.20/M; writes and deletes 1M then $1.00/M; 1 GB then $0.20/GB-month (1 unit = 4 KB) |
 
-Alarm retries: exponential backoff from 2 s, up to 6 retries ([alarms](https://developers.cloudflare.com/durable-objects/api/alarms/)).
+Alarm retries: exponential backoff from 2 s, up to 6 retries ([alarms](https://developers.cloudflare.com/durable-objects/api/alarms/)). One object has a soft limit of 1,000 requests per second; the number of objects in a namespace is unlimited.
 
 ## D1
 
-Source: [D1 pricing](https://developers.cloudflare.com/d1/platform/pricing/), [D1 limits](https://developers.cloudflare.com/d1/platform/limits/) (pages updated 2026-04-21).
+Source: [D1 pricing](https://developers.cloudflare.com/d1/platform/pricing/), [D1 limits](https://developers.cloudflare.com/d1/platform/limits/) (pages updated 2026-10-30).
 
 | Item | Free | Paid |
 | ---- | ---- | ---- |
@@ -49,7 +54,9 @@ Source: [D1 pricing](https://developers.cloudflare.com/d1/platform/pricing/), [D
 | Max database size | 500 MB | 10 GB |
 | Query duration | 30 s | 30 s |
 
-**What counts as a row written** (D1 pricing page and [FAQ](https://developers.cloudflare.com/d1/reference/faq/), checked 2026-10-10):
+A `db.batch()` call counts as one query against the per-invocation limit, however many statements it holds.
+
+**What counts as a row written** (D1 pricing page and [FAQ](https://developers.cloudflare.com/d1/reference/faq/), checked 2026-11-15):
 
 - `INSERT`, `UPDATE` and `DELETE` are all write operations, so deleted rows count as rows written.
 - Writing to a column that an index covers adds at least one more row written per index. Indexes are updated on insert, update and delete; the docs do not say explicitly that index rows are billed on `DELETE`, so treat that as likely but undocumented.
@@ -80,7 +87,7 @@ Source: [Workers pricing, KV section](https://developers.cloudflare.com/workers/
 
 ## R2
 
-Source: [R2 pricing](https://developers.cloudflare.com/r2/pricing/) (page updated 2026-10-01).
+Source: [R2 pricing](https://developers.cloudflare.com/r2/pricing/) (page updated 2026-10-30).
 
 | Item | Standard | Infrequent Access |
 | ---- | ---- | ---- |
@@ -96,13 +103,16 @@ Source: [Queues pricing](https://developers.cloudflare.com/queues/platform/prici
 
 - Free: 10,000 operations/day. Paid: 1M operations/month, then $0.40/M.
 - One operation per 64 KB written, read or deleted; about 3 per delivered message; each retry adds a read.
-- Default `max_retries` is 3. Delays (`delaySeconds`) up to 24 hours.
+- Default `max_retries` is 3; the maximum is 100. Delays (`delaySeconds`) up to 24 hours.
+- With `max_concurrency` unset, consumer invocations scale up to the platform maximum of 250. Maximum batch size is 100 messages.
+- A dead letter queue with no consumer keeps messages for 4 days, then deletes them.
 
 ## Workflows
 
-Source: [Workers pricing, Workflows section](https://developers.cloudflare.com/workers/platform/pricing/), [Workflows limits](https://developers.cloudflare.com/workflows/reference/limits/), [sleeping and retrying](https://developers.cloudflare.com/workflows/build/sleeping-and-retrying/).
+Source: [Workflows pricing](https://developers.cloudflare.com/workflows/reference/pricing/) (page updated 2026-11-04), [Workflows limits](https://developers.cloudflare.com/workflows/reference/limits/), [sleeping and retrying](https://developers.cloudflare.com/workflows/build/sleeping-and-retrying/).
 
-- Requests and CPU billed like Workers. Paid adds storage (1 GB-month included, then $0.20/GB-month) and steps (500,000/month included, then $0.80 per 100,000); step and storage billing start on a date Cloudflare announces separately.
+- Requests and CPU billed like Workers, on the same allowance. Paid adds storage (1 GB-month included, then $0.20/GB-month) and steps (500,000/month included, then $0.80 per 100,000). Step and storage billing applies from 2026-08-10. Free: 3,000 steps/day.
+- A request is one new instance, not one step. Retries and rollback handlers do not count as steps. A sleeping or waiting instance uses no CPU time but its state is stored (kept 7 days after it ends by default on Paid, up to 30).
 - Default step retries: 5, starting at 10 s, exponential, 10-minute timeout. Max 10,000 retries per step.
 - Paid: 10,000 steps per instance by default (up to 25,000); 50,000 concurrent running instances; instance creation limited to 300/s per account and 100/s per Workflow.
 
@@ -132,7 +142,9 @@ Source: [Workers AI pricing](https://developers.cloudflare.com/workers-ai/platfo
 Source: [AI Gateway pricing](https://developers.cloudflare.com/ai-gateway/reference/pricing/).
 
 - Core features (analytics, caching, rate limiting) are free. Provider tokens are billed at provider rates; Unified Billing adds a 5% fee on credit purchases.
-- Gateways created from 2026-09-24 use Workers Logs pricing for logs.
+- Accounts that created their first gateway on or after 2026-09-24 store gateway logs in Workers Logs, at Workers Logs pricing.
+- Guardrails run a Workers AI model on each prompt and response and are billed as Workers AI inference.
+- [Spend limits](https://developers.cloudflare.com/ai-gateway/features/spend-limits/): dollar budgets per gateway, scoped by provider, model or request metadata. Requests over budget get a 429 until the window resets. Up to 20 rules per gateway; eventually consistent.
 
 ## Browser Run
 
@@ -143,11 +155,13 @@ Source: [Browser Run pricing](https://developers.cloudflare.com/browser-run/pric
 | Browser hours | 10 min/day | 10 h/month, then $0.09/h |
 | Concurrent browsers (Sessions) | 3 | 10 (monthly average) included, then $2.00 each; limit 200 per account |
 | New browsers (Sessions) | 1 per 20 s | 3 per second |
-| Inactivity timeout | 60 s default, `keep_alive` up to 10 min | same |
+| Inactivity timeout | 60 s default, `keep_alive` up to 20 min | same |
+
+A session has no maximum lifetime while it stays active: any command inside the inactivity window keeps it open and billing.
 
 ## Containers
 
-Source: [Containers pricing](https://developers.cloudflare.com/containers/pricing/). Paid only. Billed per 10 ms while running.
+Source: [Containers pricing](https://developers.cloudflare.com/containers/pricing/) (page updated 2026-11-13), [Durable Object Container API](https://developers.cloudflare.com/containers/api/durable-object-container/), [migration guide](https://developers.cloudflare.com/containers/guides/migrate-to-durable-object-container-api/). Paid only. Billed per 10 ms while running. Memory and disk are billed as provisioned; CPU on active use.
 
 | Item | Included per month | Then |
 | ---- | ---- | ---- |
@@ -156,15 +170,18 @@ Source: [Containers pricing](https://developers.cloudflare.com/containers/pricin
 | Disk | 200 GB-hours | $0.00000007 per GB-second |
 | Egress | 1 TB (NA/EU) or 500 GB (other regions) | $0.025–$0.05/GB by region |
 
-Default `sleepAfter` in `@cloudflare/containers`: 10 minutes.
+How long a container runs:
+
+- With the Durable Object Container API (`this.ctx.container`), Cloudflare stops the container shortly after its Durable Object becomes inactive. `setInactivityTimeout()` extends that by up to 6 hours, and any request the Durable Object handles inside the timeout keeps the same container running.
+- The `@cloudflare/containers` package and its `Container` class are deprecated. Projects that still use it keep a container running until `sleepAfter` passes with no activity. Its default was 10 minutes when last documented (2026-10-10); the current docs no longer state it, so read the installed package for the value.
 
 ## Hyperdrive
 
-Source: [Hyperdrive pricing](https://developers.cloudflare.com/hyperdrive/platform/pricing/). Free: 100,000 queries/day, then errors. Paid: no per-query charge. Origin database costs are separate.
+Source: [Hyperdrive pricing](https://developers.cloudflare.com/hyperdrive/platform/pricing/). Free: 100,000 queries/day, then errors. Paid: no per-query charge. Origin database costs are separate. A PlanetScale database created from the Cloudflare dashboard is billed on the Cloudflare invoice at PlanetScale's rates.
 
 ## Vectorize
 
-Source: [Workers pricing, Vectorize section](https://developers.cloudflare.com/workers/platform/pricing/). Paid: 50M queried dimensions/month then $0.01/M; 10M stored dimensions then $0.05 per 100M.
+Source: [Workers pricing, Vectorize section](https://developers.cloudflare.com/workers/platform/pricing/). Paid: 50M queried dimensions/month then $0.01/M; 10M stored dimensions then $0.05 per 100M. Free: 30M queried dimensions/month and 5M stored dimensions.
 
 ## Email Service
 
@@ -181,8 +198,8 @@ Source: [Rate Limiting binding](https://developers.cloudflare.com/workers/runtim
 
 ## Account-level controls
 
-Source: [Budget alerts](https://developers.cloudflare.com/billing/manage/budget-alerts/), [usage-based billing](https://developers.cloudflare.com/billing/understand/usage-based-billing/) (pages updated 2026-05-29).
+Source: [Spending limits and alerts](https://developers.cloudflare.com/billing/manage/spend-management/), [Budget alerts](https://developers.cloudflare.com/billing/manage/budget-alerts/), [usage-based billing](https://developers.cloudflare.com/billing/understand/usage-based-billing/) (pages updated 2026-11-13). Details and wording for reports are in [account-controls.md](account-controls.md).
 
-- Budget alerts email when account-wide usage-based spend crosses a dollar threshold. They "do not pause or cap usage." Pay-as-you-go accounts only.
+- Spending limits exist for Workers (request and CPU charges) and Durable Objects (requests, duration, SQLite rows, key-value storage operations), announced 2026-11-13. Each is account-wide, set by the account owner, and blocks that product's new invocations or requests once it takes effect. A limit "does not guarantee a maximum invoice amount", and no limit covers D1, KV, R2, Queues, Workers AI, Browser Run, Containers or email.
+- Budget alerts email when account-wide usage-based spend crosses a dollar threshold. They "do not pause or limit usage." Pay-as-you-go accounts only.
 - Billable usage notifications track a single product metric, not dollars.
-- No documented hard spending cap for Workers Paid.
