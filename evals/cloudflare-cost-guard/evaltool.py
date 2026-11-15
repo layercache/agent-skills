@@ -20,6 +20,7 @@ Uses only the Python standard library.
 import json
 import re
 import sys
+import tempfile
 from collections import Counter
 from pathlib import Path
 
@@ -253,6 +254,31 @@ def owns(finding: dict, anchor: dict, expected: list[dict]) -> bool:
     return True
 
 
+def pair_up(options: list[list[int]]) -> dict[int, int]:
+    """Give each expected finding a reported finding of its own, for as many as possible.
+
+    options[e] lists the reported findings that satisfy expected finding e. A reported
+    finding is used once, so one that sits exactly on two expected findings counts for
+    only one of them. Returns {expected index: finding index}.
+    """
+    used: dict[int, int] = {}  # finding index -> expected index
+
+    def place(e: int, seen: set[int]) -> bool:
+        for f in options[e]:
+            if f in seen:
+                continue
+            seen.add(f)
+            # Take a free finding, or one whose current expected finding can use another.
+            if f not in used or place(used[f], seen):
+                used[f] = e
+                return True
+        return False
+
+    for e in range(len(options)):
+        place(e, set())
+    return {e: f for f, e in used.items()}
+
+
 def label(finding: dict) -> str:
     return f"{finding.get('severity')} {finding.get('title', '')!r} at {finding.get('file')}:{finding.get('line')}"
 
@@ -272,6 +298,15 @@ def field_problems(finding: dict, anchor: dict) -> list[str]:
     return problems
 
 
+def fits(finding: dict, anchor: dict) -> bool:
+    """True if the finding satisfies the expected finding in full: severity, autonomous flag and named fields."""
+    return (
+        finding.get("severity") in anchor["severity"]
+        and bool(finding.get("autonomous")) == bool(anchor["autonomous"])
+        and not field_problems(finding, anchor)
+    )
+
+
 def grade_detail(case_dir: Path, report_text: str) -> dict:
     """Grade one report. Returns ok, notes, the severity given to each expected finding, and other findings."""
     case = load_case(case_dir)
@@ -286,34 +321,57 @@ def grade_detail(case_dir: Path, report_text: str) -> dict:
     ok = True
     all_anchors = anchors(case_dir, case)
     expected = [a for a in all_anchors if a["role"] == "expect"]
-    claimed: set[int] = set()
+    # Each expected finding needs a reported finding of its own. A finding that is equally
+    # near two expected findings is owned by both, so pair them up before judging either.
+    owners = [[i for i, f in enumerate(findings) if owns(f, a, expected)] for a in expected]
+    paired = pair_up([[i for i in mine if fits(findings[i], a)] for mine, a in zip(owners, expected)])
+    used = {f: e for e, f in paired.items()}
+    claimed: set[int] = set(used)
 
-    for anchor in expected:
-        matches = [i for i, f in enumerate(findings) if owns(f, anchor, expected)]
-        claimed.update(matches)
-        matched = [findings[i] for i in matches]
-        hits = [f for f in matched if f.get("severity") in anchor["severity"]]
+    for e, anchor in enumerate(expected):
+        if e in paired:
+            hit = findings[paired[e]]
+            result["found"][anchor["id"]] = hit.get("severity")
+            notes.append(f"found {anchor['id']} as {hit.get('severity')} ({hit.get('id')})")
+            continue
+        ok = False
+        # What the report did say here is its answer for this expected finding, right or wrong.
+        claimed.update(i for i in owners[e] if i not in used)
+        spare = [findings[i] for i in owners[e] if i not in used]
+        hits = [f for f in spare if f.get("severity") in anchor["severity"]]
         good = [f for f in hits if bool(f.get("autonomous")) == bool(anchor["autonomous"])]
-        result["found"][anchor["id"]] = (good or hits or matched or [{"severity": "missed"}])[0].get("severity")
+        result["found"][anchor["id"]] = (good or hits or spare or [{"severity": "missed"}])[0].get("severity")
         if good:
-            problem = min((field_problems(f, anchor) for f in good), key=len)
-            if problem:
-                ok = False
-                notes.append(f"{anchor['id']}: {problem[0]}")
-            else:
-                notes.append(f"found {anchor['id']} as {good[0].get('severity')} ({good[0].get('id')})")
+            notes.append(f"{anchor['id']}: {min((field_problems(f, anchor) for f in good), key=len)[0]}")
         elif hits:
-            ok = False
             notes.append(f"{anchor['id']}: autonomous should be {anchor['autonomous']}")
-        elif matched:
-            ok = False
-            got = ", ".join(str(f.get("severity")) for f in matched)
+        elif spare:
+            got = ", ".join(str(f.get("severity")) for f in spare)
             notes.append(f"{anchor['id']}: severity {got}, expected one of {anchor['severity']}")
+        elif owners[e]:
+            taken = expected[used[owners[e][0]]]["id"]
+            notes.append(
+                f"missed {anchor['id']} at {anchor['file']}:{anchor['line']}: "
+                f"the finding there already counts as {taken}, and one finding cannot cover two"
+            )
         else:
-            ok = False
             unlined = [f for f in findings if distance(f, anchor, unlined=True) is not None]
             hint = " (a finding names the file but gives no line number)" if unlined else ""
             notes.append(f"missed {anchor['id']} at {anchor['file']}:{anchor['line']}{hint}")
+
+    # A finding beside one that was paired is judged as well. It may repeat the problem, but
+    # not rate it above what the case accepts there: a correct finding does not excuse an
+    # overrated one on the same code. An overrated one stays among the other findings.
+    for i, finding in enumerate(findings):
+        beside = [a for e, a in enumerate(expected) if e in paired and i in owners[e]]
+        if i in claimed or not beside:
+            continue
+        ceiling = max(rank(s) for a in beside for s in a["severity"])
+        if rank(str(finding.get("severity"))) > ceiling:
+            ok = False
+            notes.append(f"{label(finding)} is rated above the {SEVERITIES[ceiling]} expected for {beside[0]['id']}")
+        else:
+            claimed.add(i)
 
     for anchor in all_anchors:
         if anchor["role"] == "expect":
@@ -370,25 +428,50 @@ def grade(case_dir: Path, report_text: str) -> tuple[bool, list[str]]:
     return result["ok"], result["notes"]
 
 
+def read_meta(report_dir: Path) -> dict:
+    """What run.sh recorded about a run: skill version, commit, agent, runs per case and the cases asked for."""
+    path = report_dir / "meta.json"
+    meta = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+    return meta if isinstance(meta, dict) else {}
+
+
 def collect(report_dir: Path) -> dict[str, list[dict]]:
-    """Grade every run of every case found under report_dir. Returns {case: [result per run]}."""
-    run_dirs = sorted(p for p in report_dir.glob("run-*") if p.is_dir()) or [report_dir]
+    """Grade every run that report_dir was meant to hold. Returns {case: [result per run]}.
+
+    meta.json, which run.sh writes before the first agent starts, names the cases and the
+    number of runs. A report that is not there counts as a failed run, so a run that stopped
+    early cannot pass on the reports it did produce. Where meta.json does not say, the run
+    folders present and the cases with at least one report stand in for it.
+    """
+    meta = read_meta(report_dir)
+    trials = meta.get("trials")
+    if isinstance(trials, int) and trials > 1:
+        run_dirs = [report_dir / f"run-{n}" for n in range(1, trials + 1)]
+    elif trials == 1:
+        run_dirs = [report_dir]
+    else:
+        run_dirs = sorted(p for p in report_dir.glob("run-*") if p.is_dir()) or [report_dir]
+    asked = meta.get("cases")
     out: dict[str, list[dict]] = {}
     for case_dir in case_dirs():
+        name = case_dir.name
+        reports = [run_dir / f"{name}.md" for run_dir in run_dirs]
+        wanted = name in asked if isinstance(asked, list) else any(r.exists() for r in reports)
         runs = []
-        for run_dir in run_dirs:
-            report = run_dir / f"{case_dir.name}.md"
-            if not report.exists():
-                continue
-            result = grade_detail(case_dir, report.read_text(encoding="utf-8"))
-            modified = run_dir / f"{case_dir.name}.modified"
-            if modified.exists():
-                changed = ", ".join(modified.read_text(encoding="utf-8").split()[:6])
-                result["ok"] = False
-                result["notes"].insert(0, f"the agent changed the working copy: {changed}")
+        for run_dir, report in zip(run_dirs, reports) if wanted else []:
+            if report.exists():
+                result = grade_detail(case_dir, report.read_text(encoding="utf-8"))
+                modified = run_dir / f"{name}.modified"
+                if modified.exists():
+                    changed = ", ".join(modified.read_text(encoding="utf-8").split()[:6])
+                    result["ok"] = False
+                    result["notes"].insert(0, f"the agent changed the working copy: {changed}")
+            else:
+                missing = f"no report at {report.relative_to(report_dir)}: this run did not produce one"
+                result = {"ok": False, "notes": [missing], "found": {}, "other": []}
             result["run"] = run_dir.name if run_dir != report_dir else ""
             runs.append(result)
-        out[case_dir.name] = runs
+        out[name] = runs
     return out
 
 
@@ -414,8 +497,7 @@ def grade_all(report_dir: Path) -> int:
 def scorecard(report_dir: Path) -> str:
     """A Markdown table of the results under report_dir, for a pull request or the scorecards folder."""
     results = collect(report_dir)
-    meta_path = report_dir / "meta.json"
-    meta = json.loads(meta_path.read_text(encoding="utf-8")) if meta_path.exists() else {}
+    meta = read_meta(report_dir)
     lines = ["# Cost Guard eval scorecard", ""]
     for key in ("skill_version", "commit", "date", "agent", "trials"):
         if key in meta:
@@ -498,6 +580,17 @@ def self_test() -> list[str]:
                 moved = [f if j != i else {**f, "file": file, "line": line} for j, f in enumerate(perfect)]
                 if not passes(moved):
                     errors.append(f"{name}: {anchor['id']} cited at {file}:{line} did not match")
+            for j, other in enumerate(expected):
+                if j == i:
+                    continue
+                # A finding on this anchor that also lists the exact line of another one is
+                # equally near both. It counts for one, so the other still needs its own.
+                both = {**perfect[i], "locations": [{"file": other["file"], "line": other["line"]}]}
+                rest = [f for k, f in enumerate(perfect) if k not in (i, j)]
+                if passes([both] + rest):
+                    errors.append(f"{name}: one finding on {anchor['id']} and {other['id']} satisfied both")
+                if not passes([both, perfect[j]] + rest):
+                    errors.append(f"{name}: a finding on two anchors kept {other['id']} from its own")
             others = [b for b in expected if b is not anchor and b["file"] == anchor["file"]]
             if not others:
                 continue
@@ -517,6 +610,13 @@ def self_test() -> list[str]:
                 errors.append(f"{name}: report with no line numbers passed")
             if passes(perfect + [{**stray, "severity": "Critical"}]):
                 errors.append(f"{name}: an unexpected Critical finding passed")
+            # A second finding on the code of an expected one may repeat it, not rate it higher.
+            twin = {**perfect[0], "id": "CG-97", "title": "the same code again"}
+            ceiling = max(rank(s) for s in expected[0]["severity"])
+            if not passes(perfect + [twin]):
+                errors.append(f"{name}: a second finding at the expected severity failed the case")
+            if ceiling < rank("Critical") and passes(perfect + [{**twin, "severity": SEVERITIES[ceiling + 1]}]):
+                errors.append(f"{name}: an overrated second finding at an expected location passed")
             if not passes(perfect + [{**stray, "severity": "Low", "autonomous": False}]):
                 errors.append(f"{name}: an unexpected Low finding failed the case")
             if any("exposure" in a for a in expected) and passes([{**f, "exposure": "n/a"} for f in perfect]):
@@ -541,6 +641,39 @@ def self_test() -> list[str]:
                 errors.append(f"{name}: overall_risk 'Low' with no findings passed")
         if grade(case_dir, "no json here")[0]:
             errors.append(f"{name}: report without a summary passed")
+    return errors + missing_report_errors()
+
+
+def missing_report_errors() -> list[str]:
+    """A report that a run was meant to produce and did not must fail that run, not drop out of the count."""
+    safe = [d.name for d in case_dirs() if load_case(d)["kind"] == "safe"]
+    if len(safe) < 2:
+        return []
+    name, other = safe[:2]
+
+    def oks(meta: dict | None, layout: dict[str, list[str]]) -> dict[str, list[bool]]:
+        """Pass or fail per run, for a results folder with this meta.json and these reports per folder."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            if meta is not None:
+                (root / "meta.json").write_text(json.dumps(meta), encoding="utf-8")
+            for folder, cases in layout.items():
+                (root / folder).mkdir(exist_ok=True)
+                for case in cases:
+                    (root / folder / f"{case}.md").write_text(synthetic_report([]), encoding="utf-8")
+            return {case: [r["ok"] for r in runs] for case, runs in collect(root).items() if runs}
+
+    errors = []
+    one_of_three = {"run-1": [name], "run-2": [], "run-3": []}
+    for meta in ({"trials": 3, "cases": [name]}, {"trials": 3}, None):
+        if oks(meta, one_of_three) != {name: [True, False, False]}:
+            errors.append(f"grade-all: one report out of three runs did not fail two runs (meta.json: {meta})")
+    if oks({"trials": 3, "cases": [name]}, {"run-1": [name]}) != {name: [True, False, False]}:
+        errors.append("grade-all: run folders that were never created did not count as failed runs")
+    if oks({"trials": 1, "cases": [name, other]}, {".": [name]}) != {name: [True], other: [False]}:
+        errors.append("grade-all: a case that was asked for and left no report did not fail")
+    if oks({"trials": 1, "cases": [name]}, {".": [name]}) != {name: [True]}:
+        errors.append("grade-all: a run of selected cases failed for the cases it did not select")
     return errors
 
 

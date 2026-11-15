@@ -74,7 +74,7 @@ AGENT_CMD="claude -p" ./run.sh v1-do-alarm-reschedule
 TRIALS=3 JOBS=4 AGENT_CMD="claude -p --add-dir $(cd ../../skills/cloudflare-cost-guard && pwd)" ./run.sh
 ```
 
-`run.sh` copies each case to a temporary directory without `expected.json`, asks the agent to audit it with the skill, saves the report under `results/<timestamp>/`, and grades it. Agent output varies between runs, so one passing run says little: use `TRIALS=3` before a release. With more than one run, reports are saved under `run-<n>/` and a case counts as passed only when every run passes.
+`run.sh` copies each case to a temporary directory without `expected.json`, asks the agent to audit it with the skill, saves the report under `results/<timestamp>/`, and grades it. Agent output varies between runs, so one passing run says little: use `TRIALS=3` before a release. With more than one run, reports are saved under `run-<n>/` and a case counts as passed only when every run passes. Before the first agent starts, `run.sh` writes the cases and the number of runs to `meta.json`; a report that is missing afterwards counts as a failed run, so a run that stopped early cannot pass on the reports it did produce.
 
 The skill is read-only, so `run.sh` checks the copy after each run. If the agent changed, added or deleted a file, committed or stashed, that run fails whatever the report says.
 
@@ -92,7 +92,8 @@ python3 evaltool.py scorecard path/to/reports
 A risky case passes when all of these hold:
 
 - Every expected finding is reported within 8 lines of one of its locations, at an allowed severity, with the right `autonomous` flag, and with the expected `exposure` where the case names one. A finding must give a real line number: a location with no line does not count.
-- Each reported finding counts only for the expected finding nearest to it, so one finding cannot stand in for another a few lines away.
+- Each reported finding counts for one expected finding only: the nearest, or one of the two when it is equally near both. So one finding cannot stand in for another a few lines away, or cover two by listing both locations.
+- A second finding on the code of an expected one may repeat the problem, but may not rate it above the highest severity the case accepts there. A correct finding does not excuse an overrated one beside it.
 - No other finding is rated Critical. A finding that matches nothing the case expects or allows fails the case when it is rated above `max_unexpected_severity` (High unless the case sets it). Lower-rated extras are counted in the scorecard as noise.
 
 A bounded case passes when nothing is rated above Low, anywhere.
