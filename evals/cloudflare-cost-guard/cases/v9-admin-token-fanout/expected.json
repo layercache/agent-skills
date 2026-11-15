@@ -8,8 +8,7 @@
       "file": "src/index.ts",
       "contains": "const { results: rooms } = await env.DB.prepare(\"SELECT name FROM rooms\").all<{ name: string }>();",
       "severity": [
-        "Medium",
-        "High"
+        "Medium"
       ],
       "autonomous": false,
       "exposure": [

@@ -1,0 +1,30 @@
+// ==== COST GUARD TEST FIXTURE: DO NOT DEPLOY ====
+// This is a deliberate counterexample for testing the cloudflare-cost-guard
+// skill. Cases in this folder contain code that can run up a Cloudflare bill
+// on purpose. Never deploy it, run it, or copy it into a real project.
+// ==== END OF TEST FIXTURE NOTICE ====
+
+{
+  "name": "uptime-probes",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-01",
+  "workers_dev": false,
+  "preview_urls": false,
+  "triggers": { "crons": ["*/30 * * * *"] },
+  "queues": {
+    "producers": [{ "binding": "PROBES", "queue": "uptime-probes" }],
+    "consumers": [
+      {
+        "queue": "uptime-probes",
+        "max_batch_size": 50,
+        "max_retries": 2,
+        "dead_letter_queue": "uptime-probes-dlq",
+        "max_concurrency": 4
+      }
+    ]
+  },
+  "d1_databases": [
+    { "binding": "DB", "database_name": "uptime", "database_id": "00000000-0000-0000-0000-000000000000" }
+  ],
+  "vars": { "ALERT_WEBHOOK": "https://hooks.acme.example/uptime" }
+}

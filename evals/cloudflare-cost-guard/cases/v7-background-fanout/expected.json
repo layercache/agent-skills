@@ -17,8 +17,7 @@
         }
       ],
       "severity": [
-        "Critical",
-        "High"
+        "Critical"
       ],
       "autonomous": true,
       "explanation": "The cron runs 288 times a day and, for every user with no LIMIT or batching, reads KV, scans that user's full activity history in D1, runs an AI summary over all of it, writes a new R2 object, inserts a D1 row and enqueues an email. Cost grows with users x history x 288 per day, with no change detection, and Promise.all fans out every user at once."

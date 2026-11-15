@@ -1,0 +1,30 @@
+{
+  "kind": "vulnerable",
+  "summary": "Uptime monitor whose every-minute cron enqueues one probe per target, region and kind: 600 queue messages a minute, by design.",
+  "expected_findings": [
+    {
+      "id": "cron-queue-steady-volume",
+      "service": "Queues",
+      "file": "src/index.ts",
+      "contains": "await env.PROBES.sendBatch(probes.slice(i, i + 100).map((body) => ({ body })));",
+      "also": [
+        {
+          "contains": "async scheduled(_controller: ScheduledController, env: Env): Promise<void> {"
+        }
+      ],
+      "severity": [
+        "Medium"
+      ],
+      "autonomous": true,
+      "explanation": "25 targets x 8 regions x 3 kinds is 600 messages per run, every minute. At about three queue operations per message that is 600 x 3 x 43,200 = about 77.8M operations a month against 1M included, about $31 a month at $0.40 per million, every month, with no users. The work per run is fixed and nothing grows, so it is a repeating path at a fixed rate: above about $5 and below about $100 a month is Medium. It is 78 times the allowance, which the old multiple-of-allowance rule would have called High. The consumer is bounded: it reads one row by primary key per probe and writes only when a target changes state."
+    }
+  ],
+  "must_not_flag": [
+    {
+      "file": "src/index.ts",
+      "contains": "\"UPDATE target_state SET up = ?, changed_at = ? WHERE target = ? AND region = ? AND kind = ?\"",
+      "max_severity": "Low",
+      "reason": "The consumer writes only when a target's state changes, by primary key, and the table holds one row per target, region and kind."
+    }
+  ]
+}

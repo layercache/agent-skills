@@ -16,11 +16,10 @@
         }
       ],
       "severity": [
-        "Medium",
-        "High"
+        "Medium"
       ],
       "autonomous": true,
-      "explanation": "embedPending() selects the 50 oldest rows with embedded_at IS NULL, embeds them with Workers AI, upserts them to Vectorize and inserts embeddings rows, then marks them done with WHERE source_id = ? bound to the integer id. Nothing matches, so the same 50 rows are embedded again every 5 minutes forever with no user activity. The batch is capped at 50, so the cost rate is fixed: at bge-base-en-v1.5's 512-token input limit that is about 7.4M tokens (about 45,000 Neurons) a day, roughly 4.5x the included 10,000 Neurons a day, or about $11 a month. Rated by steady volume, that is Medium; High is allowed for runs that assume a larger batch cost."
+      "explanation": "embedPending() selects the 50 oldest rows with embedded_at IS NULL, embeds them with Workers AI, upserts them to Vectorize and inserts embeddings rows, then marks them done with WHERE source_id = ? bound to the integer id. Nothing matches, so the same 50 rows are embedded again every 5 minutes forever with no user activity. The batch is capped at 50, so the cost rate is fixed: at bge-base-en-v1.5's 512-token input limit that is about 7.4M tokens (about 45,000 Neurons) a day, roughly 4.5x the included 10,000 Neurons a day, or about $11 a month. That is over the allowance by more than about $5 and far below about $100 a month, so Medium."
     },
     {
       "id": "harvest-reinsert",

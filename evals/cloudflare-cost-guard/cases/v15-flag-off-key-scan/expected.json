@@ -1,0 +1,31 @@
+{
+  "kind": "vulnerable",
+  "summary": "The bounded news pipeline from s6, with an auth fallback that lists every legacy KV key. The fallback sits behind LEGACY_KEY_SCAN, which the Wrangler config sets to \"false\".",
+  "max_unexpected_severity": "Low",
+  "expected_findings": [
+    {
+      "id": "kv-list-fallback-flag-off",
+      "service": "KV",
+      "file": "src/auth.ts",
+      "contains": "await env.KEYS.list<{ secret: string; name: string }>({ prefix: \"legacy:\", cursor })",
+      "severity": [
+        "Low"
+      ],
+      "autonomous": false,
+      "gated_by": "LEGACY_KEY_SCAN",
+      "severity_if_enabled": [
+        "Medium",
+        "High"
+      ],
+      "explanation": "With LEGACY_KEY_SCAN on, every request with an unknown token would list the whole legacy: prefix before returning 401, one list operation per 1,000 keys, with no rate limit in front (the limiter runs after authentication). The config sets the flag to \"false\" and has no env block that turns it on, so the path is off as deployed: Low, kept as a finding with \"Gated by\" naming the flag and the severity it would have if enabled."
+    }
+  ],
+  "must_not_flag": [
+    {
+      "file": "src/jobs.ts",
+      "contains": "\"UPDATE articles SET embed_attempts = embed_attempts + 1, embed_gave_up_at = CASE WHEN embed_attempts + 1 >= ? THEN ? END WHERE id = ?\"",
+      "max_severity": "Low",
+      "reason": "The pipeline is the bounded one from s6: an attempt limit is saved before each paid embedding call, progress is marked by primary key, and source_id is unique."
+    }
+  ]
+}
