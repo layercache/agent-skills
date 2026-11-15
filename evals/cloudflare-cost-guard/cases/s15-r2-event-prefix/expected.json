@@ -1,0 +1,20 @@
+{
+  "kind": "safe",
+  "summary": "The same pipeline with the notification rule limited to the uploads/ prefix, uploads stored under uploads/, and the sidecar written under meta/. Each user may keep at most 100 clips, checked against an R2 listing before the upload, and every upload must state its length.",
+  "expected_findings": [],
+  "max_overall_severity": "Low",
+  "must_not_flag": [
+    {
+      "file": "src/index.ts",
+      "contains": "await env.MEDIA.put(key, request.body, {",
+      "max_severity": "Low",
+      "reason": "Uploads are kept, but each user can hold at most 100 clips (MAX_CLIPS_PER_USER) of at most 25 MB, and uploads without a Content-Length are refused. R2 listings through a Worker binding are strongly consistent, so the count is not per location; uploads that pass the check at the same moment can overshoot it, by at most what the per-location rate limit lets through at once. One account stores at most about 2.5 GB plus 100 small sidecars, about $0.04 a month at R2's storage rate. Rate the path by what one account unlocks."
+    },
+    {
+      "file": "src/index.ts",
+      "contains": "await env.MEDIA.put(`meta/${key.slice(\"uploads/\".length)}.json`, JSON.stringify(summary), {",
+      "max_severity": "Low",
+      "reason": "The rule in scripts/setup.sh covers only keys under uploads/. The sidecar is written under meta/, which the rule does not match, and the consumer returns early for any key outside uploads/, so its own output cannot raise another event. One upload costs one message, one R2 read and one R2 write."
+    }
+  ]
+}

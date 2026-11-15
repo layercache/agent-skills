@@ -1,0 +1,21 @@
+// ==== COST GUARD TEST FIXTURE: DO NOT DEPLOY ====
+// This is a deliberate counterexample for testing the cloudflare-cost-guard
+// skill. Cases in this folder contain code that can run up a Cloudflare bill
+// on purpose. Never deploy it, run it, or copy it into a real project.
+// ==== END OF TEST FIXTURE NOTICE ====
+
+{
+  "name": "crm-export",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-01",
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [{ "pattern": "export.crmsync.example", "custom_domain": true }],
+  "workflows": [{ "name": "contact-export", "binding": "EXPORT_WORKFLOW", "class_name": "ExportWorkflow" }],
+  "r2_buckets": [{ "binding": "EXPORTS", "bucket_name": "crm-exports" }],
+  "kv_namespaces": [{ "binding": "API_KEYS", "id": "00000000000000000000000000000000" }],
+  "ratelimits": [
+    { "name": "ACCOUNT_LIMITER", "namespace_id": "3001", "simple": { "limit": 5, "period": 60 } }
+  ],
+  "vars": { "CRM_API": "https://api.crm.example/v2" }
+}

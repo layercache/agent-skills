@@ -29,6 +29,15 @@ The fixtures are static source code. Nothing here deploys or calls Cloudflare, a
 | `v15-flag-off-key-scan` | Risky | `s6` with the KV list auth fallback behind a flag that the config turns off | Low, gated by the flag, Medium or High if enabled |
 | `v16-flag-on-in-staging` | Risky | `v15` with the flag off at the top level and on in `env.staging`, which has its own public hostname | Medium or High |
 | `v17-cron-queue-fanout` | Risky | Uptime monitor whose every-minute cron enqueues 600 probes: about $31 a month of queue operations, by design | Medium |
+| `v18-workflow-self-restart` | Risky | Workflow that exports one page, then always creates a new instance of itself, including after the last page | Critical |
+| `v19-browser-session-leak` | Risky | Every-5-minute cron that launches a browser per page with a 10-minute `keep_alive` and never closes it | High |
+| `v20-queue-cycle` | Risky | Two queues whose consumers send to each other with no depth count | Critical |
+| `v21-websocket-awake` | Risky | Public WebSocket rooms accepted with `accept()` plus a `setInterval` ping, so connected rooms never hibernate | High |
+| `v22-agent-reschedule` | Risky | Agents SDK agent, named from the URL, whose scheduled callback reschedules itself every five seconds | Critical |
+| `v23-r2-event-loop` | Risky | Consumer of a bucket's object-create notifications that writes a sidecar, under a fixed-length key, back into the same bucket; the rule is in a setup script | Critical |
+| `v24-image-resize-open` | Risky | Public image route that passes width, height and blur from the query string into a transformation | High |
+| `v25-magic-link-email` | Risky | Public sign-in route that emails any address the caller gives, limited only per IP | High |
+| `v26-monorepo-order-history` | Risky | Two Workers, a Drizzle schema, a service binding and a test file; one route reads the whole orders table per request | High |
 | `s1-bounded-alarm` | Bounded | Alarm with minimum interval, idle shutdown and persisted limits; D1 lookups by primary key | Nothing above Low |
 | `s2-bounded-queue-consumer` | Bounded | Consumer with `max_retries`, dead letter queue, backoff and idempotency | Nothing above Low |
 | `s3-bounded-d1-batch` | Bounded | Authenticated, rate-limited import capped at 500 rows | Nothing above Low |
@@ -40,6 +49,15 @@ The fixtures are static source code. Nothing here deploys or calls Cloudflare, a
 | `s9-singleton-scheduler` | Bounded | One named Durable Object whose alarm reschedules every minute forever, with capped work per tick | Nothing above Low |
 | `s10-route-self-fetch` | Bounded | Worker on a plain zone route that fetches its own URLs with fan-out; on a route those calls go to the origin and do not re-enter | Nothing above Low |
 | `s11-cron-queue-fanout-slow` | Bounded | `v17` on a 30-minute schedule: over the queue allowance by well under a dollar a month | Nothing above Low |
+| `s12-workflow-paged-export` | Bounded | `v18` as one instance that pages in a capped loop, once per account per day | Nothing above Low |
+| `s13-browser-closed` | Bounded | `v19` every six hours with one browser, closed in `finally` | Nothing above Low |
+| `s14-websocket-hibernation` | Bounded | `v21` behind a session check, with the Hibernation API and no timers | Nothing above Low |
+| `s15-r2-event-prefix` | Bounded | `v23` with the rule limited to `uploads/`, the sidecar written under `meta/`, and at most 100 clips per user | Nothing above Low |
+| `s16-image-presets` | Bounded | `v24` with three fixed presets | Nothing above Low |
+| `s17-bounded-retry` | Bounded | `v4` with three attempts, backoff, an API key and a per-key limit | Nothing above Low |
+| `s18-public-write-retention` | Bounded | `v8` writing one row per visit to a known link, with 30-day retention and `workers.dev` off | Nothing above Low |
+| `s19-admin-paged-stats` | Bounded | `v9` paged at 50 rooms per call and rate limited | Nothing above Low |
+| `s20-agent-loop-budget` | Bounded | `v6` with four model calls at most, capped tokens, an API key and a per-key limit | Nothing above Low |
 
 Each case folder holds the project plus `expected.json`, which names the expected finding (or the code that must not be flagged), the allowed severities, and an explanation of the execution path. Locations are given as a code snippet rather than a line number, so editing a fixture does not silently break the expectations.
 
@@ -102,7 +120,7 @@ In every case, the summary must agree with the findings: `overall_risk` is the h
 
 ## Adding a case
 
-1. Create `cases/v<n>-<name>/` (risky) or `cases/s<n>-<name>/` (bounded) with source and a Wrangler config named `wrangler.jsonc.fixture` (never `wrangler.jsonc`, and no `package.json`). Start every file with the do-not-deploy notice; copy it from an existing case.
+1. Create `cases/v<n>-<name>/` (risky) or `cases/s<n>-<name>/` (bounded) with source and a Wrangler config named `wrangler.jsonc.fixture` or `wrangler.toml.fixture` (never the real name, and no `package.json`). A monorepo case keeps one config in each Worker's folder. Fixture files can be `.ts`, `.sql`, `.sh` or `.fixture`. Start every file with the do-not-deploy notice; copy it from an existing case.
 2. Write the code the way a real project would. Do not add comments that describe the bug or the safeguard; `evaltool.py check` rejects words like "vulnerable" or "eval" in fixtures.
 3. Add `expected.json` following an existing case:
    - `expected_findings`: each needs `contains`, a snippet that occurs once in `file`, and may list `also`, other snippets on the same path (the handler, the scheduling call, the query the loop runs) that a correct report might cite instead. List only lines that belong to this problem, or a different finding could be credited for it. `exposure` is optional; set it only when one value is clearly right.

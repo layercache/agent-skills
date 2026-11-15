@@ -1,0 +1,26 @@
+{
+  "kind": "vulnerable",
+  "summary": "Workflow that exports one page of contacts, then always starts a new instance of itself for the next page, including after the last page.",
+  "expected_findings": [
+    {
+      "id": "workflow-restarts-itself",
+      "service": "Workflows",
+      "file": "src/export.ts",
+      "contains": "await this.env.EXPORT_WORKFLOW.create({",
+      "also": [
+        {
+          "contains": "async run(event: WorkflowEvent<ExportParams>, step: WorkflowStep): Promise<void> {"
+        },
+        {
+          "contains": "params: { accountId, cursor: page.next },"
+        }
+      ],
+      "severity": [
+        "Critical"
+      ],
+      "autonomous": true,
+      "explanation": "run() ends by creating a new instance with cursor: page.next, with no check that there is a next page and no generation counter. After the last page next is null, which is also the starting cursor, so the export begins again from the first page and never stops: every 30 seconds, forever, one metered CRM API call, one R2 write and three Workflow steps. Every POST /exports starts another chain that never ends, so the number of loops grows with requests and nothing limits the cost rate."
+    }
+  ],
+  "must_not_flag": []
+}

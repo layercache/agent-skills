@@ -10,6 +10,8 @@ Mechanisms summarized from Cloudflare's developer documentation, checked 2026-11
 - **Config:** `main`, `routes`, `limits.cpu_ms`, `limits.subrequests`, `services`, `observability`, `compatibility_flags`.
 - **Code signals:** `export default { fetch, scheduled, queue, email, tail }`, `ctx.waitUntil(`, `fetch(` to own hostname or `request.url`, `env.<SERVICE>.fetch(`, RPC calls on service bindings, Hono/itty-router route tables, `functions/**` and `_worker.js` for Pages.
 - **Platform bounds:** per-invocation subrequest limit, CPU limit (configurable on Paid), 128 MB memory, a loop limit of 16 Worker-to-Worker calls in one chain (error 1019), `waitUntil` work cut off about 30 seconds after the response. These cap one invocation, not how many invocations happen.
+- **Static assets:** requests served as static assets are free. With `assets.run_worker_first` (set to `true` or to path patterns), matching requests run the Worker first and are billed as requests, so middleware there runs for every file a browser or bot asks for.
+- **Tail Workers:** a `tail()` handler runs once for every invocation of the Worker it observes; whatever it writes or fetches is paid on every request.
 - **Same-zone fetch:** a `fetch()` to the Worker's own zone runs a Worker again only when the target is a Custom Domain or the `global_fetch_strictly_public` compatibility flag is set. Otherwise it goes to the zone's origin server and skips Workers, and on `workers.dev` it fails with error 1042. Service bindings always reach the bound Worker.
 - **Runaway shapes:** self-fetch recursion with fan-out, retry loops around subrequests, unauthenticated endpoints that trigger expensive downstream work, `waitUntil` fan-out per request.
 - **Also billed:** Workers Logs and Logpush. Logs are billed by event count until 2026-11-30 and by size ingested and stored from 2026-12-01, so very chatty logging inside loops costs more the larger each line is.
@@ -19,9 +21,10 @@ Mechanisms summarized from Cloudflare's developer documentation, checked 2026-11
 ## Durable Objects
 
 - **Billed on:** requests (HTTP, RPC sessions, WebSocket messages at a reduced ratio, **and alarms**), wall-clock duration in GB-seconds at the full 128 MB allocation while the object is actively running (hibernating objects are not billed for duration), plus storage. Each `setAlarm()` is also billed as one row written. SQLite-backed objects bill rows read, rows written and stored data; legacy key-value-backed objects bill read/write/delete request units and stored data.
+- **Duration and hibernation:** an object is billed while it runs and while it is idle but cannot hibernate. It cannot hibernate with a socket accepted through `accept()`, a pending `setTimeout` or `setInterval`, or a request still in flight. Pending timers and I/O also stop eviction for up to 15 minutes each. With none of those it hibernates after about 10 seconds idle and costs nothing, even while Hibernation API sockets stay connected.
 - **Config:** `durable_objects.bindings`, `migrations` with `new_sqlite_classes` (SQLite) or `new_classes` (legacy key-value storage).
-- **Code signals:** `extends DurableObject`, `ctx.storage.setAlarm`, `alarm(`, `ctx.storage.sql.exec`, `ctx.storage.put/get/list/delete`, `idFromName(`, `newUniqueId(`, `ctx.acceptWebSocket`, `setWebSocketAutoResponse`, `blockConcurrencyWhile`.
-- **Runaway shapes:** self-rescheduling alarms (see [durable-object-alarms.md](durable-object-alarms.md)), objects kept awake by timers or polling, per-request object creation with alarms, `storage.list()` without `limit` on growing data, WebSocket broadcast loops that wake many objects.
+- **Code signals:** `extends DurableObject`, `ctx.storage.setAlarm`, `alarm(`, `ctx.storage.sql.exec`, `ctx.storage.put/get/list/delete`, `idFromName(`, `newUniqueId(`, `ctx.acceptWebSocket`, `setWebSocketAutoResponse`, `blockConcurrencyWhile`, `.accept()` on a server socket, `setInterval(`. The Agents SDK builds on Durable Objects: `extends Agent`, `this.schedule(`, `this.scheduleEvery(`, `Scheduler` from `agents/schedules`, `onConnect`, `onMessage`; its schedules share the object's alarm, and a recurring schedule carries on after a failed run.
+- **Runaway shapes:** self-rescheduling alarms (see [durable-object-alarms.md](durable-object-alarms.md)), objects kept awake by timers or polling, per-request object creation with alarms, `storage.list()` without `limit` on growing data, WebSocket broadcast loops that wake many objects, sockets accepted with `accept()` so every connected client keeps an object billed, billable work on every incoming WebSocket message.
 - **Account backstop:** an optional Durable Objects spending limit rejects new requests, SQL and `setAlarm()` calls once requests, duration and storage operations reach a threshold. It does not block messages on WebSockets that are already open ([account-controls.md](account-controls.md)).
 - Docs: [pricing](https://developers.cloudflare.com/durable-objects/platform/pricing/), [alarms](https://developers.cloudflare.com/durable-objects/api/alarms/), [spending limits](https://developers.cloudflare.com/durable-objects/platform/spend-management/).
 
@@ -48,8 +51,9 @@ Mechanisms summarized from Cloudflare's developer documentation, checked 2026-11
 - **Billed on:** storage (GB-month), Class A operations (writes and lists, such as `PutObject`, `ListObjects`, multipart uploads, `CopyObject`), Class B operations (reads, such as `GetObject`, `HeadObject`). Deletes are free. Egress is free. Infrequent Access storage adds a retrieval fee and has no free tier.
 - **Config:** `r2_buckets`.
 - **Code signals:** `env.<BUCKET>.put/get/head/list/delete(`, `createMultipartUpload`, S3 SDK clients pointed at R2.
-- **Runaway shapes:** re-uploading the same object on every request or tick, `list()` loops over growing prefixes, unbounded user uploads with no size or count limit, writes amplified by retries.
-- Docs: [pricing](https://developers.cloudflare.com/r2/pricing/).
+- **Event notifications:** a rule sends a bucket's `object-create` or `object-delete` events to a queue. Rules are created with `wrangler r2 bucket notification create` or in the dashboard, not in the Wrangler config, and can be limited by prefix and suffix.
+- **Runaway shapes:** re-uploading the same object on every request or tick, `list()` loops over growing prefixes, unbounded user uploads with no size or count limit, writes amplified by retries, a notification consumer that writes back into the bucket and prefix its rule covers.
+- Docs: [pricing](https://developers.cloudflare.com/r2/pricing/), [event notifications](https://developers.cloudflare.com/r2/buckets/event-notifications/).
 
 ## Queues
 
@@ -102,8 +106,17 @@ Mechanisms summarized from Cloudflare's developer documentation, checked 2026-11
 - **Code signals, Durable Object Container API:** `this.ctx.container`, `container.start(`, `setInactivityTimeout(`, `getTcpPort(`, `monitor(`, `destroy(`, `signal(`, `getByName(` on the container's namespace.
 - **Code signals, deprecated `@cloudflare/containers` package:** `extends Container`, `sleepAfter`, `renewActivityTimeout()`, `getContainer(`, `getRandom(`, `startAndWaitForPorts(`, `onStart`/`onStop`/`onError`. Cloudflare has deprecated the package; many projects still use it.
 - **Behavior:** with the Durable Object Container API, Cloudflare stops the container shortly after its Durable Object becomes inactive, unless `setInactivityTimeout()` extends that (up to 6 hours). Any request the Durable Object handles inside the timeout keeps the same container running. With the deprecated `Container` class, an instance runs until `sleepAfter` passes with no activity or until it is stopped; incoming requests and `renewActivityTimeout()` reset the timer. Scaling is manual (by instance name).
-- **Runaway shapes:** an inactivity timeout or `sleepAfter` of hours, an alarm, timer or health-check ping that keeps the Durable Object active so its container never stops, `renewActivityTimeout()` called from a timer or alarm, a start or restart in a loop (`onError`, or `start()` from an alarm that reschedules itself), instance names derived from user input (unbounded instance count), large instance types for light work.
+- **Sandbox SDK** (`@cloudflare/sandbox`, `getSandbox(`): each sandbox is a container. `keepAlive: true` pings the container every 30 seconds so it never times out, and it runs until `destroy()` is called.
+- **Runaway shapes:** an inactivity timeout or `sleepAfter` of hours, a sandbox with `keepAlive: true` that some path never destroys, an alarm, timer or health-check ping that keeps the Durable Object active so its container never stops, `renewActivityTimeout()` called from a timer or alarm, a start or restart in a loop (`onError`, or `start()` from an alarm that reschedules itself), instance names derived from user input (unbounded instance count), large instance types for light work.
 - Docs: [pricing](https://developers.cloudflare.com/containers/pricing/), [Durable Object Container API](https://developers.cloudflare.com/containers/api/durable-object-container/), [migrating from the Container class](https://developers.cloudflare.com/containers/guides/migrate-to-durable-object-container-api/), [scaling and routing](https://developers.cloudflare.com/containers/platform-details/scaling-and-routing/).
+
+## Images
+
+- **Billed on:** unique transformations, plus stored and delivered images for images kept in Images. A unique transformation is one combination of source image and parameters, counted once per calendar month; `format` and `quality` do not make a combination new. Transformations through the Images binding, and of images stored elsewhere (R2, an origin), count the same way. They bill only on the Images Paid plan; on the Images Free plan new transformations fail with error 9422 once the monthly allowance is used.
+- **Config:** `images` binding; no config at all for URL (`/cdn-cgi/image/`) or `fetch` (`cf.image`) transformations.
+- **Code signals:** `cf: { image: {`, `/cdn-cgi/image/`, `env.<IMAGES>.input(`, `.transform({`, `.output({`.
+- **Runaway shapes:** width, height or other options taken from the request with no list of allowed presets, so every new value is a new billable transformation; transforming on every request with no cache in front.
+- Docs: [pricing](https://developers.cloudflare.com/images/pricing/).
 
 ## Hyperdrive
 

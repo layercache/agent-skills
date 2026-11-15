@@ -39,6 +39,8 @@ Source: [Durable Objects pricing](https://developers.cloudflare.com/durable-obje
 | SQLite storage | 5 GB total | 5 GB-month, then $0.20/GB-month |
 | Legacy KV-backed storage (Paid only) | n/a | reads 1M units then $0.20/M; writes and deletes 1M then $1.00/M; 1 GB then $0.20/GB-month (1 unit = 4 KB) |
 
+Duration by state ([lifecycle](https://developers.cloudflare.com/durable-objects/concepts/durable-object-lifecycle/)): an object that can hibernate does so after 10 seconds idle and is not billed; one that cannot (a socket accepted with `accept()`, a pending timer) stays billed, and is evicted only after 70 to 140 seconds with no events and nothing pending. Each pending timer or I/O call holds it in memory for up to 15 minutes. One object awake for an hour is about 461 GB-s, about $0.006 over the allowance; for a month, about 332,000 GB-s, about $4.
+
 Alarm retries: exponential backoff from 2 s, up to 6 retries ([alarms](https://developers.cloudflare.com/durable-objects/api/alarms/)). One object has a soft limit of 1,000 requests per second; the number of objects in a namespace is unlimited.
 
 ## D1
@@ -174,6 +176,14 @@ How long a container runs:
 
 - With the Durable Object Container API (`this.ctx.container`), Cloudflare stops the container shortly after its Durable Object becomes inactive. `setInactivityTimeout()` extends that by up to 6 hours, and any request the Durable Object handles inside the timeout keeps the same container running.
 - The `@cloudflare/containers` package and its `Container` class are deprecated. Projects that still use it keep a container running until `sleepAfter` passes with no activity. Its default was 10 minutes when last documented (2026-10-10); the current docs no longer state it, so read the installed package for the value.
+
+## Images
+
+Source: [Images pricing](https://developers.cloudflare.com/images/pricing/) (page updated 2026-10-19). The Images plan is separate from the Workers plan.
+
+- Images Free: 5,000 unique transformations a month; after that, new transformations fail with error 9422 and nothing is charged.
+- Images Paid: 5,000 unique transformations a month included, then $0.50 per 1,000. Stored images $5 per 100,000 a month; delivered images $1 per 100,000 a month.
+- A unique transformation is one combination of source image and parameters, counted once per calendar month. `format` and `quality` do not count toward uniqueness. The Images binding and transformations of images stored outside Images are billed as transformations.
 
 ## Hyperdrive
 

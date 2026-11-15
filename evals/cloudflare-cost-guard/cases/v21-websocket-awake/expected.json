@@ -1,0 +1,30 @@
+{
+  "kind": "vulnerable",
+  "summary": "Public WebSocket rooms, one Durable Object per room name, that accept sockets with accept() and run a setInterval ping, so every room with a client connected is billed for duration the whole time.",
+  "expected_findings": [
+    {
+      "id": "room-never-hibernates",
+      "service": "Durable Objects",
+      "file": "src/room.ts",
+      "contains": "server.accept();",
+      "also": [
+        {
+          "contains": "setInterval(() => this.broadcast(JSON.stringify({ type: \"ping\", at: Date.now() })), PING_MS);"
+        },
+        {
+          "file": "src/index.ts",
+          "contains": "return env.ROOMS.get(env.ROOMS.idFromName(match[1])).fetch(request);"
+        }
+      ],
+      "severity": [
+        "High"
+      ],
+      "autonomous": false,
+      "exposure": [
+        "external"
+      ],
+      "explanation": "Room accepts each socket with server.accept() instead of the Hibernation API and keeps a setInterval ping running, so the object cannot hibernate: it is billed for duration at 128 MB for as long as any client stays connected, about 461 GB-s per room per hour, and the timer keeps it in memory for up to 15 minutes after the last client leaves. Anyone can open a socket to any room name with no authentication, so one idle connection per name holds another object awake: the number of billed objects is set by callers. Messages are only relayed, so duration is the cost."
+    }
+  ],
+  "must_not_flag": []
+}

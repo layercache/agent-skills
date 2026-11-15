@@ -42,7 +42,7 @@ run_one() { # run_one <case> <directory for its report>
   # Configs are stored as *.fixture so nobody can deploy a case from the repo.
   # The do-not-deploy notice is stripped too, so it cannot hint at the answer.
   python3 "$HERE/evaltool.py" strip "$work"
-  for cfg in "$work"/wrangler.*.fixture; do mv "$cfg" "${cfg%.fixture}"; done
+  find "$work" -name 'wrangler.*.fixture' | while IFS= read -r cfg; do mv "$cfg" "${cfg%.fixture}"; done
   git -C "$work" init -q
   git -C "$work" add -A
   git -C "$work" -c user.name=dev -c user.email=dev@example.com commit -qm "Initial commit"

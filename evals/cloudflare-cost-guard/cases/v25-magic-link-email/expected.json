@@ -1,0 +1,26 @@
+{
+  "kind": "vulnerable",
+  "summary": "Public sign-in route that emails a magic link to whatever address the caller gives, limited only per IP address.",
+  "expected_findings": [
+    {
+      "id": "email-to-any-address",
+      "service": "Email Service",
+      "file": "src/index.ts",
+      "contains": "await env.EMAIL.send({",
+      "also": [
+        {
+          "contains": "if (request.method === \"POST\" && url.pathname === \"/login\") {"
+        }
+      ],
+      "severity": [
+        "High"
+      ],
+      "autonomous": false,
+      "exposure": [
+        "external"
+      ],
+      "explanation": "POST /login needs no authentication and sends one email to the address in the request body, plus one KV write. The only bound is a Rate Limiting binding keyed by IP, which is per location and which a distributed client avoids; nothing limits sends per address or in total. Email to an address the caller chooses is the reputational case: per 1M requests that is 1M emails, about $350 at $0.35 per 1,000 beyond the 3,000 included, and hard bounces to made-up addresses count and hurt the sending domain."
+    }
+  ],
+  "must_not_flag": []
+}

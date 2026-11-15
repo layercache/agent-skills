@@ -1,0 +1,20 @@
+{
+  "kind": "safe",
+  "summary": "The same contact export as one Workflow instance that pages inside a loop capped at 200 pages, stops at the last page, and can be started once per account per day.",
+  "expected_findings": [],
+  "max_overall_severity": "Low",
+  "must_not_flag": [
+    {
+      "file": "src/export.ts",
+      "contains": "for (let pageNumber = 0; pageNumber < MAX_PAGES; pageNumber++) {",
+      "max_severity": "Low",
+      "reason": "The loop stops when the CRM returns no next cursor and at 200 pages at most, so an instance runs at most 600 steps. Each CRM call retries four times with backoff and not at all on a 4xx. Nothing creates another instance."
+    },
+    {
+      "file": "src/index.ts",
+      "contains": "const instance = await env.EXPORT_WORKFLOW.create({ id: `${accountId}-${day}`, params: { accountId } });",
+      "max_severity": "Low",
+      "reason": "The instance id is the account and the date, so an account can start one export a day; the route needs an API key and is rate limited per account."
+    }
+  ]
+}

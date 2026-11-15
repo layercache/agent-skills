@@ -1,0 +1,26 @@
+{
+  "kind": "vulnerable",
+  "summary": "Agents SDK agent, one per mailbox name in the URL, whose scheduled sync callback always schedules itself again five seconds later, and whose request handler starts another chain on every request.",
+  "expected_findings": [
+    {
+      "id": "agent-schedule-loop",
+      "service": "Durable Objects",
+      "file": "src/inbox-agent.ts",
+      "contains": "await this.schedule(POLL_SECONDS, \"sync\", { reason: \"poll\" });",
+      "also": [
+        {
+          "contains": "await this.schedule(1, \"sync\", { reason: \"request\" });"
+        },
+        {
+          "contains": "async sync(_payload: { reason: string }): Promise<void> {"
+        }
+      ],
+      "severity": [
+        "Critical"
+      ],
+      "autonomous": true,
+      "explanation": "sync() reschedules itself in a finally block every 5 seconds with no stop condition, so once any request reaches an agent it polls forever: each run is an alarm invocation, a metered mail API call, a state write and a sync_log row that is never pruned. Agent schedules run on the Durable Object's alarm, so there is no setAlarm call to search for. routeAgentRequest() names the agent from the URL with no authentication, so every new name adds another agent that polls forever, and onRequest() adds a new delayed schedule on every request, so chains multiply inside one agent too."
+    }
+  ],
+  "must_not_flag": []
+}

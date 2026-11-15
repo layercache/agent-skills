@@ -1,0 +1,26 @@
+{
+  "kind": "vulnerable",
+  "summary": "Public image route that passes width, height, blur and fit from the query string straight into an image transformation.",
+  "expected_findings": [
+    {
+      "id": "free-form-image-transformations",
+      "service": "Images",
+      "file": "src/index.ts",
+      "contains": "cf: { image: { width, height, fit, blur, quality: 85, format: \"auto\" } },",
+      "also": [
+        {
+          "contains": "async fetch(request: Request, env: Env): Promise<Response> {"
+        }
+      ],
+      "severity": [
+        "High"
+      ],
+      "autonomous": false,
+      "exposure": [
+        "external"
+      ],
+      "explanation": "Anyone can request any width, height, blur and fit for any image, and each new combination of source image and parameters is a unique transformation. A client that walks through sizes makes every request a new one: per 1M distinct requests that is 1M unique transformations, about $500 at $0.50 per 1,000 on the Images Paid plan, and the cache header does not help because every URL is different. There is no list of allowed sizes and no authentication. The repository cannot show the Images plan; on the Free plan the same path makes new transformations fail after 5,000 a month."
+    }
+  ],
+  "must_not_flag": []
+}

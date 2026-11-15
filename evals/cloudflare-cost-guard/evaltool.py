@@ -46,7 +46,7 @@ NOTICE_LINES = [
     "on purpose. Never deploy it, run it, or copy it into a real project.",
     f"==== {NOTICE_END} ====",
 ]
-COMMENT = {".ts": "//", ".fixture": "//", ".sql": "--"}
+COMMENT = {".ts": "//", ".fixture": "//", ".sql": "--", ".sh": "#"}
 
 
 def notice_for(path: Path) -> str:
@@ -134,9 +134,14 @@ def check_cases() -> list[str]:
             errors.append(f"{name}: safe case needs max_overall_severity")
         if case.get("max_unexpected_severity", MAX_UNEXPECTED_SEVERITY) not in SEVERITIES[1:]:
             errors.append(f"{name}: unknown max_unexpected_severity")
-        if not any((case_dir / f).exists() for f in ("wrangler.toml.fixture", "wrangler.json.fixture", "wrangler.jsonc.fixture")):
+        # A monorepo case keeps a config in each Worker's folder, so look at every level.
+        if not any(case_dir.rglob("wrangler.*.fixture")):
             errors.append(f"{name}: missing Wrangler config (stored as wrangler.<ext>.fixture)")
-        live = [f for f in ("wrangler.toml", "wrangler.json", "wrangler.jsonc", "package.json") if (case_dir / f).exists()]
+        live = sorted(
+            str(p.relative_to(case_dir))
+            for f in ("wrangler.toml", "wrangler.json", "wrangler.jsonc", "package.json")
+            for p in case_dir.rglob(f)
+        )
         if live:
             errors.append(f"{name}: {', '.join(live)} would make the fixture deployable; store configs as *.fixture")
         for item in case.get("expected_findings", []):
@@ -376,7 +381,13 @@ def grade_detail(case_dir: Path, report_text: str) -> dict:
     for anchor in all_anchors:
         if anchor["role"] == "expect":
             continue
-        matches = [i for i, f in enumerate(findings) if distance(f, anchor, unlined=True) is not None]
+        # A finding that sits at least as close to an expected finding belongs to that one,
+        # so an allowed or forbidden location a few lines away does not judge it.
+        matches = [
+            i for i, f in enumerate(findings)
+            if (gap := distance(f, anchor, unlined=True)) is not None
+            and not any((d := distance(f, e)) is not None and d <= gap for e in expected)
+        ]
         over = [findings[i] for i in matches if rank(str(findings[i].get("severity"))) > rank(anchor["max_severity"])]
         if anchor["role"] == "allow":
             claimed.update(matches)
@@ -639,6 +650,15 @@ def self_test() -> list[str]:
                 errors.append(f"{name}: a Medium finding away from the anchors passed a safe case")
             if passes([], overall_risk="Low"):
                 errors.append(f"{name}: overall_risk 'Low' with no findings passed")
+        for forbid in (a for a in anchors(case_dir, case) if a["role"] == "forbid"):
+            # A finding on forbidden code must fail the case, even next to an expected finding.
+            file, line = forbid["places"][0]
+            if any(place == (file, line) for e in expected for place in e["places"]):
+                continue
+            above = SEVERITIES[min(rank(forbid["max_severity"]) + 1, len(SEVERITIES) - 1)]
+            bad = {"id": "CG-98", "severity": above, "file": file, "line": line, "autonomous": False, "title": "forbidden"}
+            if passes(perfect + [bad]):
+                errors.append(f"{name}: a {above} finding at {file}:{line} (must_not_flag) passed")
         if grade(case_dir, "no json here")[0]:
             errors.append(f"{name}: report without a summary passed")
     return errors + missing_report_errors()
