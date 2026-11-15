@@ -10,10 +10,12 @@ CREATE TABLE articles (
   title TEXT NOT NULL,
   body TEXT NOT NULL,
   fetched_at INTEGER NOT NULL,
-  embedded_at INTEGER
+  embedded_at INTEGER,
+  embed_attempts INTEGER NOT NULL DEFAULT 0,
+  embed_gave_up_at INTEGER
 );
 CREATE UNIQUE INDEX articles_source ON articles (source_id);
-CREATE INDEX articles_pending ON articles (embedded_at, id);
+CREATE INDEX articles_pending ON articles (embedded_at, embed_gave_up_at, id);
 
 CREATE TABLE embeddings (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

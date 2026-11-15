@@ -25,12 +25,13 @@ The fixtures are static source code. Nothing here deploys or calls Cloudflare, a
 | `v11-cron-no-progress` | Risky | Cron embedding job that marks progress on the wrong column, a harvest that re-inserts the feed, and a KV list auth fallback | Critical, High or Critical, Medium or High |
 | `v12-alarm-refresh-window` | Risky | Durable Object refresh alarm that re-arms at a stored time it never moves forward | Critical |
 | `v13-cron-resync-unchanged` | Risky | Every-minute cron that rewrites a whole supplier catalogue into an indexed D1 table with an `ON CONFLICT DO UPDATE` upsert, changed or not | Medium or High |
+| `v14-cron-poison-batch` | Risky | Embedding cron that pays Workers AI for a batch before marking it done, with no attempt limit per article | Medium or High |
 | `s1-bounded-alarm` | Bounded | Alarm with minimum interval, idle shutdown and persisted limits | Nothing above Low |
 | `s2-bounded-queue-consumer` | Bounded | Consumer with `max_retries`, dead letter queue, backoff and idempotency | Nothing above Low |
 | `s3-bounded-d1-batch` | Bounded | Authenticated, rate-limited import capped at 500 rows | Nothing above Low |
 | `s4-circuit-breaker-cron` | Bounded | Cron behind a D1-backed circuit breaker and kill switch | Nothing above Low |
 | `s5-bounded-queue-history` | Bounded | `v10` with indexes that match each hot query and per-user history and device caps | Nothing above Low |
-| `s6-cron-with-progress` | Bounded | `v11` with a unique `source_id`, an index on the pending query, progress marked by primary key and a direct legacy key lookup | Nothing above Low |
+| `s6-cron-with-progress` | Bounded | `v11` with a unique `source_id`, an index on the pending query, progress marked by primary key, an attempt limit saved before each embedding call, and a direct legacy key lookup | Nothing above Low |
 | `s7-bounded-alarm-refresh` | Bounded | `v12` refreshing only after new messages, with a 15-minute alarm floor | Nothing above Low |
 | `s8-cron-resync-changed-only` | Bounded | `v13` fetching only products changed since a saved cursor, with an upsert that skips unchanged rows | Nothing above Low |
 
@@ -49,7 +50,7 @@ CI does not run an agent. Agent output varies between runs and needs a model API
 
 ## Running the agent eval
 
-Run this before releasing a change to the skill. It costs model usage for 21 audits.
+Run this before releasing a change to the skill. It costs model usage for 22 audits.
 
 ```bash
 cd evals/cloudflare-cost-guard
