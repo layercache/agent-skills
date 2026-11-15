@@ -7,6 +7,14 @@
       "service": "Durable Objects",
       "file": "src/save-queue.ts",
       "contains": "`SELECT MIN(updated_at) AS oldest FROM deliveries WHERE state NOT IN (${WAITING_LIST})`",
+      "also": [
+        {
+          "contains": "private waitingCount(userId: string): number {"
+        },
+        {
+          "contains": "`SELECT id, user_id, payload, attempts FROM deliveries WHERE state IN (${WAITING_LIST}) ORDER BY created_at LIMIT ?`"
+        }
+      ],
       "severity": [
         "High"
       ],

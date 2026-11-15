@@ -42,15 +42,15 @@ Each case folder holds the project plus `expected.json`, which names the expecte
 CI runs on every pull request and needs no credentials:
 
 ```bash
-python3 evals/cloudflare-cost-guard/evaltool.py check      # cases are well-formed, snippets exist, fixtures don't hint at answers
-python3 evals/cloudflare-cost-guard/evaltool.py self-test  # the grader passes perfect reports and fails empty or wrong ones
+python3 evals/cloudflare-cost-guard/evaltool.py check      # cases are well-formed, snippets exist, every case is in the table above, fixtures don't hint at answers
+python3 evals/cloudflare-cost-guard/evaltool.py self-test  # the grader passes perfect reports and fails empty, wrong, vague or padded ones
 ```
 
 CI does not run an agent. Agent output varies between runs and needs a model API key, so the agent eval is a manual step.
 
 ## Running the agent eval
 
-Run this before releasing a change to the skill. It costs model usage for 22 audits.
+Run this before releasing a change to the skill. It costs model usage for one audit per case and run.
 
 ```bash
 cd evals/cloudflare-cost-guard
@@ -63,19 +63,44 @@ AGENT_CMD="codex exec" ./run.sh
 
 # One case
 AGENT_CMD="claude -p" ./run.sh v1-do-alarm-reschedule
+
+# Before a release: three runs per case, four cases at a time
+TRIALS=3 JOBS=4 AGENT_CMD="claude -p --add-dir $(cd ../../skills/cloudflare-cost-guard && pwd)" ./run.sh
 ```
 
-`run.sh` copies each case to a temporary directory without `expected.json`, asks the agent to audit it with the skill, saves the report under `results/<timestamp>/`, and grades it. To grade reports you produced another way, save them as `<case>.md` in one folder and run:
+`run.sh` copies each case to a temporary directory without `expected.json`, asks the agent to audit it with the skill, saves the report under `results/<timestamp>/`, and grades it. Agent output varies between runs, so one passing run says little: use `TRIALS=3` before a release. With more than one run, reports are saved under `run-<n>/` and a case counts as passed only when every run passes. Before the first agent starts, `run.sh` writes the cases and the number of runs to `meta.json`; a report that is missing afterwards counts as a failed run, so a run that stopped early cannot pass on the reports it did produce.
+
+The skill is read-only, so `run.sh` checks the copy after each run. If the agent changed, added or deleted a file, committed or stashed, that run fails whatever the report says.
+
+Each results folder gets a `scorecard.md`: one row per case with the expected rating, how many runs passed, the ratings reported and the first failure. Before a release, save it as `scorecards/<version>.md` so the next change has a baseline to compare with.
+
+To grade reports you produced another way, save them as `<case>.md` in one folder and run:
 
 ```bash
 python3 evaltool.py grade-all path/to/reports
+python3 evaltool.py scorecard path/to/reports
 ```
 
-A case passes when every expected finding is reported within 8 lines of its location at an allowed severity, and a bounded case has nothing above Low. Each reported finding counts for one expected finding only: the nearest, or one of the two when it is equally near both. So one finding cannot stand in for another a few lines away, or cover two by listing both locations.
+## How a report is graded
+
+A risky case passes when all of these hold:
+
+- Every expected finding is reported within 8 lines of one of its locations, at an allowed severity, with the right `autonomous` flag, and with the expected `exposure` where the case names one. A finding must give a real line number: a location with no line does not count.
+- Each reported finding counts for one expected finding only: the nearest, or one of the two when it is equally near both. So one finding cannot stand in for another a few lines away, or cover two by listing both locations.
+- A second finding on the code of an expected one may repeat the problem, but may not rate it above the highest severity the case accepts there. A correct finding does not excuse an overrated one beside it.
+- No other finding is rated Critical. A finding that matches nothing the case expects or allows fails the case when it is rated above `max_unexpected_severity` (High unless the case sets it). Lower-rated extras are counted in the scorecard as noise.
+
+A bounded case passes when nothing is rated above Low, anywhere.
+
+In every case, the summary must agree with the findings: `overall_risk` is the highest severity reported ("None" with no findings), and `autonomous_runaway_paths` is true exactly when a finding is autonomous and rated High or Critical.
 
 ## Adding a case
 
 1. Create `cases/v<n>-<name>/` (risky) or `cases/s<n>-<name>/` (bounded) with source and a Wrangler config named `wrangler.jsonc.fixture` (never `wrangler.jsonc`, and no `package.json`). Start every file with the do-not-deploy notice; copy it from an existing case.
 2. Write the code the way a real project would. Do not add comments that describe the bug or the safeguard; `evaltool.py check` rejects words like "vulnerable" or "eval" in fixtures.
-3. Add `expected.json` following an existing case.
-4. Run `python3 evaltool.py check` and `python3 evaltool.py self-test`.
+3. Add `expected.json` following an existing case:
+   - `expected_findings`: each needs `contains`, a snippet that occurs once in `file`, and may list `also`, other snippets on the same path (the handler, the scheduling call, the query the loop runs) that a correct report might cite instead. List only lines that belong to this problem, or a different finding could be credited for it. `exposure` is optional; set it only when one value is clearly right.
+   - `may_flag`: a real, smaller problem in the fixture that a report may mention but does not have to, with the highest severity it may be given.
+   - `must_not_flag`: code that must not be rated above `max_severity`. Bounded cases also need `max_overall_severity`.
+4. Add the case to the table above; `evaltool.py check` fails if it is missing.
+5. Run `python3 evaltool.py check` and `python3 evaltool.py self-test`.

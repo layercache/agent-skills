@@ -7,8 +7,14 @@
       "service": "Durable Objects",
       "file": "src/index.ts",
       "contains": "const { results: rooms } = await env.DB.prepare(\"SELECT name FROM rooms\").all<{ name: string }>();",
-      "severity": ["Medium", "High"],
+      "severity": [
+        "Medium",
+        "High"
+      ],
       "autonomous": false,
+      "exposure": [
+        "credential"
+      ],
       "explanation": "/admin/stats is protected only by one static ADMIN_TOKEN. Each call reads every room from D1 with no LIMIT and wakes every GameRoom Durable Object (a DO request plus duration and SQLite rows read per room), so cost per call grows with the number of rooms. If the token leaks or a dashboard polls it, calls repeat with no rate limit or per-call cap."
     }
   ],
