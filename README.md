@@ -6,30 +6,30 @@ Free, open-source [Agent Skills](https://agentskills.io) for coding agents, main
 
 | Skill | What it does | Install |
 | ----- | ------------ | ------- |
-| [Cloudflare Cost Guard](skills/cloudflare-cost-guard/) | Read-only audit of a Cloudflare codebase for runaway usage and surprise billing: self-rescheduling alarms, queue loops, recursive Workers, unbounded retries and more. | `npx skills add layercache/agent-skills#v1.7.0 --skill cloudflare-cost-guard` |
+| [Cloudflare Cost Guard](skills/cloudflare-cost-guard/) | Read-only audit of a Cloudflare codebase for runaway usage and surprise billing: self-rescheduling alarms, queue loops, recursive Workers, unbounded retries and more. | `npx skills add layercache/agent-skills#v1.8.0 --skill cloudflare-cost-guard` |
 
 ## Install
 
 Skills install with the [`skills` CLI](https://github.com/vercel-labs/skills) (the one behind [skills.sh](https://skills.sh)). It needs Node.js and installs the skill for the agents you choose.
 
-Install from a tagged release, so you get a reviewed version of `main` rather than whatever was pushed last. The examples use `v1.7.0`; check [Releases](https://github.com/layercache/agent-skills/releases) for the latest tag. The CLI shows what it is about to install and asks before writing anything, so read the prompt rather than skipping it.
+Install from a tagged release, so you get a reviewed version of `main` rather than whatever was pushed last. The examples use `v1.8.0`; check [Releases](https://github.com/layercache/agent-skills/releases) for the latest tag. The CLI shows what it is about to install and asks before writing anything, so read the prompt rather than skipping it.
 
 ```bash
 # See what's available
-npx skills add layercache/agent-skills#v1.7.0 --list
+npx skills add layercache/agent-skills#v1.8.0 --list
 
 # Install one skill into the current project
-npx skills add layercache/agent-skills#v1.7.0 --skill cloudflare-cost-guard
+npx skills add layercache/agent-skills#v1.8.0 --skill cloudflare-cost-guard
 
 # Install for your user account instead, so every project can use it
 # (-a names your agent: codex, cursor, github-copilot, gemini-cli, opencode, claude-code, ...)
-npx skills add layercache/agent-skills#v1.7.0 --skill cloudflare-cost-guard -g -a <agent>
+npx skills add layercache/agent-skills#v1.8.0 --skill cloudflare-cost-guard -g -a <agent>
 
 # Install for specific agents only
-npx skills add layercache/agent-skills#v1.7.0 --skill cloudflare-cost-guard -a codex -a cursor
+npx skills add layercache/agent-skills#v1.8.0 --skill cloudflare-cost-guard -a codex -a cursor
 
 # Install every skill in this repository
-npx skills add layercache/agent-skills#v1.7.0 --skill '*'
+npx skills add layercache/agent-skills#v1.8.0 --skill '*'
 ```
 
 **What gets installed:** only the skill folder (`skills/<name>/`): Markdown instructions, reference notes and a report template. It contains no Wrangler config, `package.json` or runnable Worker code; example code appears only as fenced snippets in Markdown. The test projects under `evals/` are never installed.
@@ -52,11 +52,11 @@ Many agents also let you call a skill by name (for example `/cloudflare-cost-gua
 
 On Workers Paid, the monthly subscription is a minimum, not a spending limit. Cloudflare's optional spending limits cover only Workers and Durable Objects, do nothing until you set them, and can be passed before they take effect. A Durable Object alarm that reschedules itself, or a queue consumer that re-sends its own failures, keeps running and keeps billing with nobody using the app. Cost Guard looks for those paths in your code before your invoice does.
 
-**What it audits:** Workers and Pages Functions, Durable Objects (alarms, SQLite and key-value storage), D1, KV, R2, Queues, Workflows, Cron Triggers, Workers AI, AI Gateway, Browser Run, Containers, Hyperdrive, Vectorize and Email Service, plus loops that call metered third-party APIs, public routes anyone can use to drive cost (including `workers.dev` and preview URLs), and admin routes behind a single shared secret.
+**What it audits:** Workers and Pages Functions, Durable Objects (alarms, SQLite and key-value storage), D1, KV, R2, Queues, Workflows, Cron Triggers, Workers AI, AI Gateway, Browser Run, Containers, Images, Hyperdrive, Vectorize and Email Service, including code written with the Agents SDK or an ORM. It also covers loops that call metered third-party APIs, public routes anyone can use to drive cost (including `workers.dev` and preview URLs), admin routes behind a single shared secret, WebSocket setups that keep Durable Objects billed, storage events that trigger themselves, and callers the Wrangler config does not show, such as your own frontend polling the API or a CI schedule.
 
 **How it works:** the agent inventories your Wrangler configs and handlers, searches for known runaway patterns, traces each one from its entrypoint to the billable operations, checks whether real safeguards bound it, and explains how each affected service is billed.
 
-**What you get:** a Markdown report that opens with a short "At a glance" block (overall risk, the worst finding priced at a documented rate, and a table of the top actions with what each fixes, where, and when to do it), then a service inventory, findings with severity, confidence, file and line references, what setting gates them, and a cost at a stated rate, a list of Cloudflare dashboard settings to check by hand, a prioritized action table, evidence gaps, and a JSON summary. Give it the JSON summary from a previous run and it also tells you what is new, fixed or re-rated since then.
+**What you get:** a Markdown report that opens with a short "At a glance" block (overall risk, the worst finding priced at a documented rate, and a table of the top actions with what each fixes, where, and when to do it), then a service inventory, findings with severity, confidence, file and line references, what setting gates them, and a cost at a stated rate, a list of Cloudflare dashboard settings to check by hand (including the spending limits Cloudflare offers for Workers and Durable Objects, and whether one would stop each finding), a prioritized action table, evidence gaps, and a JSON summary. Give it the JSON summary from a previous run and it also tells you what is new, fixed or re-rated since then.
 
 **Example finding**
 
@@ -86,6 +86,8 @@ On Workers Paid, the monthly subscription is a minimum, not a spending limit. Cl
 │       └── assets/         # Report template
 ├── evals/                  # Test cases and graders, never installed
 │   └── cloudflare-cost-guard/
+│       ├── cases/          # Small projects with known answers
+│       └── scorecards/     # Agent eval results, one file per released version
 ├── template/               # Starting point for a new skill
 ├── scripts/                # Validation used by CI
 ├── CONTRIBUTING.md
