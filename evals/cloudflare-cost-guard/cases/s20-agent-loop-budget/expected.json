@@ -1,0 +1,14 @@
+{
+  "kind": "safe",
+  "summary": "The support agent from v6 with at most four model calls per question, capped input and output, an API key and a per-key rate limit.",
+  "expected_findings": [],
+  "max_overall_severity": "Low",
+  "must_not_flag": [
+    {
+      "file": "src/index.ts",
+      "contains": "for (let step = 0; step < MAX_STEPS; step++) {",
+      "max_severity": "Low",
+      "reason": "The loop runs at most four times, each call is capped at 400 output tokens, and the question and every article added to the history are capped, so one request has a fixed maximum cost. The route needs an API key and is limited to ten requests a minute per key before any model call: credential-gated, each call capped at a fixed size."
+    }
+  ]
+}

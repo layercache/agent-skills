@@ -1,0 +1,14 @@
+{
+  "kind": "safe",
+  "summary": "The same pipeline with the notification rule limited to the uploads/ prefix, uploads stored under uploads/, and the sidecar written under meta/.",
+  "expected_findings": [],
+  "max_overall_severity": "Low",
+  "must_not_flag": [
+    {
+      "file": "src/index.ts",
+      "contains": "await env.MEDIA.put(`meta/${key.slice(\"uploads/\".length)}.json`, JSON.stringify(summary), {",
+      "max_severity": "Low",
+      "reason": "The rule in scripts/setup.sh covers only keys under uploads/. The sidecar is written under meta/, which the rule does not match, and the consumer returns early for any key outside uploads/, so its own output cannot raise another event. One upload costs one message, one R2 read and one R2 write."
+    }
+  ]
+}

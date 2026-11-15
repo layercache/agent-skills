@@ -1,0 +1,20 @@
+// ==== COST GUARD TEST FIXTURE: DO NOT DEPLOY ====
+// This is a deliberate counterexample for testing the cloudflare-cost-guard
+// skill. Cases in this folder contain code that can run up a Cloudflare bill
+// on purpose. Never deploy it, run it, or copy it into a real project.
+// ==== END OF TEST FIXTURE NOTICE ====
+
+{
+  "name": "notebird-login",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-01",
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [{ "pattern": "login.notebird.example", "custom_domain": true }],
+  "send_email": [{ "name": "EMAIL" }],
+  "kv_namespaces": [{ "binding": "TOKENS", "id": "00000000000000000000000000000000" }],
+  "ratelimits": [
+    { "name": "PER_IP", "namespace_id": "3301", "simple": { "limit": 10, "period": 60 } }
+  ],
+  "vars": { "APP_URL": "https://app.notebird.example" }
+}

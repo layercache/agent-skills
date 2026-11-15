@@ -1,0 +1,14 @@
+{
+  "kind": "safe",
+  "summary": "The same image route with three fixed presets instead of free-form sizes.",
+  "expected_findings": [],
+  "max_overall_severity": "Low",
+  "must_not_flag": [
+    {
+      "file": "src/index.ts",
+      "contains": "cf: { image: { ...preset, quality: 85, format: \"auto\" } },",
+      "max_severity": "Low",
+      "reason": "The caller picks one of three named presets and anything else is rejected before the transformation call, so an image can have at most three unique transformations a month however many requests arrive. The number of images is the operator's own catalogue."
+    }
+  ]
+}

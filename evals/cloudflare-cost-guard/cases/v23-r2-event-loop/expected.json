@@ -1,0 +1,27 @@
+{
+  "kind": "vulnerable",
+  "summary": "Queue consumer for a bucket's object-create notifications that writes a sidecar file back into the same bucket, where the notification rule has no prefix or suffix filter.",
+  "expected_findings": [
+    {
+      "id": "r2-notification-writes-back",
+      "service": "R2",
+      "file": "src/index.ts",
+      "contains": "await env.MEDIA.put(`${key}.meta.json`, JSON.stringify(summary), {",
+      "also": [
+        {
+          "contains": "async queue(batch: MessageBatch<ObjectEvent>, env: Env): Promise<void> {"
+        },
+        {
+          "file": "scripts/setup.sh",
+          "contains": "npx wrangler r2 bucket notification create clipshare-media --event-type object-create --queue media-events"
+        }
+      ],
+      "severity": [
+        "Critical"
+      ],
+      "autonomous": true,
+      "explanation": "scripts/setup.sh creates an object-create rule on clipshare-media with no --prefix or --suffix, so every new object in the bucket sends a message to media-events. The consumer answers each message by writing <key>.meta.json into the same bucket, which is a new object and raises the same event: the next message writes <key>.meta.json.meta.json, and so on. One upload starts a chain that never ends, each link costing about three queue operations, an R2 read, an R2 write and a stored object, with no user involved. The rule lives outside the Wrangler config, in the setup script."
+    }
+  ],
+  "must_not_flag": []
+}

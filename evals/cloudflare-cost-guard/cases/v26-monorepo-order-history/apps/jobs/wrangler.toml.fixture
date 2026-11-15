@@ -1,0 +1,29 @@
+// ==== COST GUARD TEST FIXTURE: DO NOT DEPLOY ====
+// This is a deliberate counterexample for testing the cloudflare-cost-guard
+// skill. Cases in this folder contain code that can run up a Cloudflare bill
+// on purpose. Never deploy it, run it, or copy it into a real project.
+// ==== END OF TEST FIXTURE NOTICE ====
+
+name = "shop-jobs"
+main = "src/index.ts"
+compatibility_date = "2026-09-01"
+workers_dev = false
+preview_urls = false
+
+[triggers]
+crons = ["30 4 * * *"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "cornershop"
+database_id = "00000000-0000-0000-0000-000000000000"
+
+[[queues.producers]]
+binding = "RECEIPTS"
+queue = "shop-receipts"
+
+[[queues.consumers]]
+queue = "shop-receipts"
+max_batch_size = 25
+max_retries = 3
+dead_letter_queue = "shop-receipts-dlq"

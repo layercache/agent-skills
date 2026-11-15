@@ -1,0 +1,14 @@
+{
+  "kind": "safe",
+  "summary": "The admin stats route from v9, paged at 50 rooms per call by primary key and rate limited, with each room returning a stored counter.",
+  "expected_findings": [],
+  "max_overall_severity": "Low",
+  "must_not_flag": [
+    {
+      "file": "src/index.ts",
+      "contains": "const { results: rooms } = await env.DB.prepare(\"SELECT name FROM rooms WHERE name > ? ORDER BY name LIMIT ?\")",
+      "max_severity": "Low",
+      "reason": "Each call reads at most 50 room names by primary-key range and wakes at most 50 Durable Objects, each for one key read. The route still needs the admin token and is limited to six calls a minute, so one leaked token costs at most 300 object wake-ups a minute: each call is capped at a fixed size."
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "kind": "safe",
+  "summary": "The same rooms behind a session check, using the WebSocket Hibernation API with an automatic ping response, no timers, and a cap of 100 sockets per room.",
+  "expected_findings": [],
+  "max_overall_severity": "Low",
+  "must_not_flag": [
+    {
+      "file": "src/room.ts",
+      "contains": "this.ctx.acceptWebSocket(server);",
+      "max_severity": "Low",
+      "reason": "Sockets are accepted through the Hibernation API, pings are answered by setWebSocketAutoResponse() without waking the object, and there is no timer, so a room with idle clients hibernates and is not billed for duration. Only members with a valid session can connect, and a room holds at most 100 sockets."
+    },
+    {
+      "file": "src/room.ts",
+      "contains": "if (socket !== ws) socket.send(message);",
+      "max_severity": "Low",
+      "reason": "A message is only relayed to at most 99 other sockets. Outgoing messages are not billed, and nothing is written or called per message."
+    }
+  ]
+}
