@@ -1,7 +1,8 @@
 {
   "kind": "safe",
-  "summary": "The same refresh alarm, refreshing only after new messages, replacing the previous snapshot and never re-arming sooner than a fixed floor.",
+  "summary": "The same refresh alarm, refreshing only after new messages, replacing the previous snapshot and never re-arming sooner than a fixed floor. Messages are rate-limited per user, capped per session and deleted with the snapshot when the session expires.",
   "expected_findings": [],
+  "max_overall_severity": "Low",
   "must_not_flag": [
     {
       "file": "src/session.ts",

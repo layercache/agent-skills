@@ -13,27 +13,27 @@ The fixtures are static source code. Nothing here deploys or calls Cloudflare, a
 | Case | Kind | What it contains | Expected |
 | ---- | ---- | ---------------- | -------- |
 | `v1-do-alarm-reschedule` | Risky | Durable Object alarm that reschedules itself every second, and immediately on error | Critical |
-| `v2-queue-reenqueue` | Risky | Queue consumer that re-sends failed messages to its own queue | Critical or High |
+| `v2-queue-reenqueue` | Risky | Queue consumer that re-sends failed messages to its own queue | Critical |
 | `v3-recursive-fetch` | Risky | Worker that paginates by fetching its own public route with fan-out | High |
-| `v4-retry-no-max` | Risky | Retry loop with no maximum around a metered geocoding API | High or Medium |
-| `v5-unbounded-d1-writes` | Risky | Every-minute cron that rewrites every row of a growing indexed D1 table | High or Critical |
+| `v4-retry-no-max` | Risky | Retry loop with no maximum around a metered geocoding API | High |
+| `v5-unbounded-d1-writes` | Risky | Every-minute cron that rewrites every row of a growing indexed D1 table | Critical |
 | `v6-ai-agent-loop` | Risky | Workers AI agent loop with no iteration or token budget | High |
-| `v7-background-fanout` | Risky | Every-5-minute cron doing KV, D1, AI, R2 and Queue work for every user | Medium to Critical |
+| `v7-background-fanout` | Risky | Every-5-minute cron doing KV, D1, AI, R2 and Queue work for every user | Critical or High |
 | `v8-unauthenticated-write` | Risky | Every public request writes one D1 row and one KV key with no retention, bounded only by a per-IP limit, on `workers.dev` by default | Medium |
 | `v9-admin-token-fanout` | Risky | One static admin token gates a route that wakes every Durable Object | Medium or High |
 | `v10-queue-history-scan` | Risky | Per-account queue that caps waiting rows but scans its uncapped history on every request and alarm | High |
-| `v11-cron-no-progress` | Risky | Cron embedding job that marks progress on the wrong column, a harvest that re-inserts the feed, and a KV list auth fallback | Critical, High or Critical, Medium or High |
+| `v11-cron-no-progress` | Risky | Cron embedding job that marks progress on the wrong column, a harvest that re-inserts the feed, and a KV list auth fallback | Medium or High for each |
 | `v12-alarm-refresh-window` | Risky | Durable Object refresh alarm that re-arms at a stored time it never moves forward | Critical |
 | `v13-cron-resync-unchanged` | Risky | Every-minute cron that rewrites a whole supplier catalogue into an indexed D1 table with an `ON CONFLICT DO UPDATE` upsert, changed or not | Medium or High |
 | `v14-cron-poison-batch` | Risky | Embedding cron that pays Workers AI for a batch before marking it done, with no attempt limit per article | Medium or High |
-| `s1-bounded-alarm` | Bounded | Alarm with minimum interval, idle shutdown and persisted limits | Nothing above Low |
+| `s1-bounded-alarm` | Bounded | Alarm with minimum interval, idle shutdown and persisted limits; D1 lookups by primary key | Nothing above Low |
 | `s2-bounded-queue-consumer` | Bounded | Consumer with `max_retries`, dead letter queue, backoff and idempotency | Nothing above Low |
 | `s3-bounded-d1-batch` | Bounded | Authenticated, rate-limited import capped at 500 rows | Nothing above Low |
 | `s4-circuit-breaker-cron` | Bounded | Cron behind a D1-backed circuit breaker and kill switch | Nothing above Low |
 | `s5-bounded-queue-history` | Bounded | `v10` with indexes that match each hot query and per-user history and device caps | Nothing above Low |
 | `s6-cron-with-progress` | Bounded | `v11` with a unique `source_id`, an index on the pending query, progress marked by primary key, an attempt limit saved before each embedding call, and a direct legacy key lookup | Nothing above Low |
-| `s7-bounded-alarm-refresh` | Bounded | `v12` refreshing only after new messages, with a 15-minute alarm floor | Nothing above Low |
-| `s8-cron-resync-changed-only` | Bounded | `v13` fetching only products changed since a saved cursor, with an upsert that skips unchanged rows | Nothing above Low |
+| `s7-bounded-alarm-refresh` | Bounded | `v12` refreshing only after new messages, with a 15-minute alarm floor, a per-user rate limit, a message cap and cleanup at expiry | Nothing above Low |
+| `s8-cron-resync-changed-only` | Bounded | `v13` fetching only products changed since a saved (updated_at, sku) cursor, capped at 20 pages a run, with an upsert that skips unchanged rows | Nothing above Low |
 
 Each case folder holds the project plus `expected.json`, which names the expected finding (or the code that must not be flagged), the allowed severities, and an explanation of the execution path. Locations are given as a code snippet rather than a line number, so editing a fixture does not silently break the expectations.
 
@@ -71,7 +71,7 @@ AGENT_CMD="claude -p" ./run.sh v1-do-alarm-reschedule
 python3 evaltool.py grade-all path/to/reports
 ```
 
-A case passes when every expected finding is reported within 8 lines of its location at an allowed severity, and a bounded case has nothing above Low.
+A case passes when every expected finding is reported within 8 lines of its location at an allowed severity, and a bounded case has nothing above Low. Each reported finding counts only for the expected finding nearest to it, so one finding cannot stand in for another a few lines away.
 
 ## Adding a case
 
