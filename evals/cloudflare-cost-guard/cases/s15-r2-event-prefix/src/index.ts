@@ -20,6 +20,7 @@ interface ObjectEvent {
 
 const CLIP_NAME = /^[a-z0-9][a-z0-9._-]{0,80}$/;
 const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
+const MAX_CLIPS_PER_USER = 100;
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -34,10 +35,19 @@ export default {
     if (request.method !== "PUT" || !CLIP_NAME.test(name)) {
       return new Response("not found", { status: 404 });
     }
-    if (Number(request.headers.get("content-length") ?? "0") > MAX_UPLOAD_BYTES) {
+    const length = Number(request.headers.get("content-length") ?? NaN);
+    if (!Number.isInteger(length) || length <= 0) {
+      return new Response("length required", { status: 411 });
+    }
+    if (length > MAX_UPLOAD_BYTES) {
       return new Response("too large", { status: 413 });
     }
-    await env.MEDIA.put(`uploads/${userId}/${name}`, request.body, {
+    const key = `uploads/${userId}/${name}`;
+    const clips = await env.MEDIA.list({ prefix: `uploads/${userId}/`, limit: MAX_CLIPS_PER_USER });
+    if (clips.objects.length >= MAX_CLIPS_PER_USER && !clips.objects.some((clip) => clip.key === key)) {
+      return new Response("clip limit reached", { status: 403 });
+    }
+    await env.MEDIA.put(key, request.body, {
       httpMetadata: { contentType: request.headers.get("content-type") ?? "application/octet-stream" },
     });
     return Response.json({ name }, { status: 201 });
