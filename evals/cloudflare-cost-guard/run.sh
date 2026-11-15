@@ -58,6 +58,23 @@ run_one() { # run_one <case> <directory for its report>
   rm -rf "$work"
 }
 
+# Record what this run is meant to hold before any agent starts. The grader fails a run
+# whose report is missing, so a run that stops early cannot pass on the reports it has.
+python3 - "$OUT/meta.json" "$SKILL_DIR/SKILL.md" "$AGENT_LABEL" "$TRIALS" \
+  "$(git -C "$HERE" rev-parse --short HEAD 2>/dev/null || echo unknown)" "${cases[@]}" <<'PY'
+import datetime, json, re, sys
+out, skill, agent, trials, commit, *cases = sys.argv[1:]
+version = re.search(r'^\s*version:\s*"?([^"\n]+)"?', open(skill, encoding="utf-8").read(), re.MULTILINE)
+json.dump({
+    "skill_version": version.group(1) if version else "unknown",
+    "commit": commit,
+    "date": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d"),
+    "agent": agent,
+    "trials": int(trials),
+    "cases": cases,
+}, open(out, "w", encoding="utf-8"), indent=2)
+PY
+
 for trial in $(seq 1 "$TRIALS"); do
   if [ "$TRIALS" -gt 1 ]; then dir="$OUT/run-$trial"; else dir="$OUT"; fi
   mkdir -p "$dir"
@@ -68,20 +85,6 @@ for trial in $(seq 1 "$TRIALS"); do
   done
 done
 wait
-
-python3 - "$OUT/meta.json" "$SKILL_DIR/SKILL.md" "$AGENT_LABEL" "$TRIALS" \
-  "$(git -C "$HERE" rev-parse --short HEAD 2>/dev/null || echo unknown)" <<'PY'
-import datetime, json, re, sys
-out, skill, agent, trials, commit = sys.argv[1:]
-version = re.search(r'^\s*version:\s*"?([^"\n]+)"?', open(skill, encoding="utf-8").read(), re.MULTILINE)
-json.dump({
-    "skill_version": version.group(1) if version else "unknown",
-    "commit": commit,
-    "date": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d"),
-    "agent": agent,
-    "trials": int(trials),
-}, open(out, "w", encoding="utf-8"), indent=2)
-PY
 
 python3 "$HERE/evaltool.py" scorecard "$OUT" > "$OUT/scorecard.md"
 echo "scorecard: $OUT/scorecard.md"
