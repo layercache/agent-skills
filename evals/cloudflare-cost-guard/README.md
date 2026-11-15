@@ -52,7 +52,7 @@ The fixtures are static source code. Nothing here deploys or calls Cloudflare, a
 | `s12-workflow-paged-export` | Bounded | `v18` as one instance that pages in a capped loop, once per account per day | Nothing above Low |
 | `s13-browser-closed` | Bounded | `v19` every six hours with one browser, closed in `finally` | Nothing above Low |
 | `s14-websocket-hibernation` | Bounded | `v21` behind a session check, with the Hibernation API and no timers | Nothing above Low |
-| `s15-r2-event-prefix` | Bounded | `v23` with the rule limited to `uploads/` and the sidecar written under `meta/` | Nothing above Low |
+| `s15-r2-event-prefix` | Bounded | `v23` with the rule limited to `uploads/`, the sidecar written under `meta/`, and at most 100 clips per user | Nothing above Low |
 | `s16-image-presets` | Bounded | `v24` with three fixed presets | Nothing above Low |
 | `s17-bounded-retry` | Bounded | `v4` with three attempts, backoff, an API key and a per-key limit | Nothing above Low |
 | `s18-public-write-retention` | Bounded | `v8` writing one row per visit to a known link, with 30-day retention and `workers.dev` off | Nothing above Low |
