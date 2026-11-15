@@ -34,7 +34,7 @@ The fixtures are static source code. Nothing here deploys or calls Cloudflare, a
 | `v20-queue-cycle` | Risky | Two queues whose consumers send to each other with no depth count | Critical |
 | `v21-websocket-awake` | Risky | Public WebSocket rooms accepted with `accept()` plus a `setInterval` ping, so connected rooms never hibernate | High |
 | `v22-agent-reschedule` | Risky | Agents SDK agent, named from the URL, whose scheduled callback reschedules itself every five seconds | Critical |
-| `v23-r2-event-loop` | Risky | Consumer of a bucket's object-create notifications that writes a sidecar back into the same bucket; the rule is in a setup script | Critical |
+| `v23-r2-event-loop` | Risky | Consumer of a bucket's object-create notifications that writes a sidecar, under a fixed-length key, back into the same bucket; the rule is in a setup script | Critical |
 | `v24-image-resize-open` | Risky | Public image route that passes width, height and blur from the query string into a transformation | High |
 | `v25-magic-link-email` | Risky | Public sign-in route that emails any address the caller gives, limited only per IP | High |
 | `v26-monorepo-order-history` | Risky | Two Workers, a Drizzle schema, a service binding and a test file; one route reads the whole orders table per request | High |

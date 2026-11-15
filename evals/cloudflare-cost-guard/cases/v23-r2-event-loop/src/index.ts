@@ -21,6 +21,14 @@ interface ObjectEvent {
 const CLIP_NAME = /^[a-z0-9][a-z0-9._-]{0,80}$/;
 const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
 
+// Sidecar names are a digest of the object key, so keys with slashes or odd
+// characters still map to one flat name.
+async function sidecarKey(key: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(key));
+  const hex = Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
+  return `meta/${hex}.json`;
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const token = request.headers.get("authorization")?.replace(/^Bearer /, "") ?? "";
@@ -59,7 +67,7 @@ export default {
         uploadedAt: object.uploaded.toISOString(),
         indexedAt: new Date().toISOString(),
       };
-      await env.MEDIA.put(`${key}.meta.json`, JSON.stringify(summary), {
+      await env.MEDIA.put(await sidecarKey(key), JSON.stringify(summary), {
         httpMetadata: { contentType: "application/json" },
       });
       msg.ack();
