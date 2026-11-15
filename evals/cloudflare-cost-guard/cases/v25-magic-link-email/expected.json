@@ -19,7 +19,7 @@
       "exposure": [
         "external"
       ],
-      "explanation": "POST /login needs no authentication and sends one email to the address in the request body, plus one KV write. The only bound is a Rate Limiting binding keyed by IP, which is per location and which a distributed client avoids; nothing limits sends per address or in total. Email to an address the caller chooses is the reputational case: per 1M requests that is 1M emails, about $350 at $0.35 per 1,000 beyond the 3,000 included, and hard bounces to made-up addresses count and hurt the sending domain."
+      "explanation": "POST /login needs no authentication and sends one email to the address in the request body, plus one KV write. The only bound is a Rate Limiting binding keyed by IP, which is per location and which a distributed client avoids; nothing in the code limits sends per address or in total. Email to an address the caller chooses is the reputational case: per 1M requests that is 1M emails, about $350 at $0.35 per 1,000 beyond the 3,000 included, and hard bounces to made-up addresses count and hurt the sending domain."
     }
   ],
   "must_not_flag": []

@@ -8,7 +8,7 @@
       "file": "src/index.ts",
       "contains": "cf: { image: { ...preset, quality: 85, format: \"auto\" } },",
       "max_severity": "Low",
-      "reason": "The caller picks one of three named presets and anything else is rejected before the transformation call, so an image can have at most three unique transformations a month however many requests arrive. The number of images is the operator's own catalogue."
+      "reason": "The caller picks one of three named presets and anything else is rejected before the transformation call, so an image can have at most three unique transformations a month however many requests arrive. The path must be in canonical form, with no repeated or trailing separators, so a caller cannot reach one file under many URLs and have each count as a new source image. The number of images is the operator's own catalogue, as long as the origin serves each image at one path."
     }
   ]
 }

@@ -102,6 +102,14 @@ def anchors(case_dir: Path, case: dict) -> list[dict]:
     return out
 
 
+def fixed_rate_severity(monthly_usd: float) -> str:
+    """The rating of a repeating path at a fixed rate, from what it bills a month over the allowance.
+
+    The thresholds are the ones in SKILL.md: under about $5 is Low, about $100 or more is High.
+    """
+    return "Low" if monthly_usd < 5 else "Medium" if monthly_usd < 100 else "High"
+
+
 def check_cases() -> list[str]:
     errors = []
     dirs = case_dirs()
@@ -169,6 +177,25 @@ def check_cases() -> list[str]:
                 for extra in item.get("also", []):
                     if not isinstance(extra, dict) or "contains" not in extra:
                         errors.append(f"{name}: every 'also' entry needs 'contains'")
+                # A repeating path at a fixed rate is rated by its dollars a month. Where a case
+                # states that figure, the ratings it accepts must be the ones the figure gives.
+                if "monthly_usd" not in item:
+                    continue
+                usd, what = item["monthly_usd"], item.get("id") or str(item.get("contains"))[:40]
+                if isinstance(usd, bool) or not isinstance(usd, (int, float)) or usd < 0:
+                    errors.append(f"{name}: {what}: monthly_usd must be a number of dollars")
+                    continue
+                rated = fixed_rate_severity(usd)
+                if key == "expected_findings" and rated not in item.get("severity", []):
+                    errors.append(
+                        f"{name}: {what} bills ${usd:g} a month, which is {rated}, "
+                        f"but the case accepts {item.get('severity')}"
+                    )
+                elif key != "expected_findings" and rank(rated) > rank(item.get("max_severity", "")):
+                    errors.append(
+                        f"{name}: {what} bills ${usd:g} a month, which is {rated}, "
+                        f"above the {item.get('max_severity')} the case allows"
+                    )
         try:
             anchors(case_dir, case)
         except (OSError, ValueError, KeyError, AttributeError) as exc:
@@ -646,8 +673,9 @@ def self_test() -> list[str]:
             wrong = [{"id": "CG-1", "severity": "High", "file": anchor["file"], "line": anchor["line"]}]
             if passes(wrong):
                 errors.append(f"{name}: false positive passed a safe case")
-            if passes([{**stray, "severity": "Medium"}]):
-                errors.append(f"{name}: a Medium finding away from the anchors passed a safe case")
+            above = SEVERITIES[rank(case["max_overall_severity"]) + 1]
+            if passes([{**stray, "severity": above}]):
+                errors.append(f"{name}: a {above} finding away from the anchors passed a safe case")
             if passes([], overall_risk="Low"):
                 errors.append(f"{name}: overall_risk 'Low' with no findings passed")
         for forbid in (a for a in anchors(case_dir, case) if a["role"] == "forbid"):
@@ -661,6 +689,9 @@ def self_test() -> list[str]:
                 errors.append(f"{name}: a {above} finding at {file}:{line} (must_not_flag) passed")
         if grade(case_dir, "no json here")[0]:
             errors.append(f"{name}: report without a summary passed")
+    for usd, want in ((0, "Low"), (4.99, "Low"), (5, "Medium"), (99.99, "Medium"), (100, "High")):
+        if fixed_rate_severity(usd) != want:
+            errors.append(f"check: ${usd} a month is rated {fixed_rate_severity(usd)}, not {want}")
     return errors + missing_report_errors()
 
 

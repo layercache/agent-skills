@@ -22,7 +22,7 @@ The fixtures are static source code. Nothing here deploys or calls Cloudflare, a
 | `v8-unauthenticated-write` | Risky | Every public request writes one D1 row and one KV key with no retention, bounded only by a per-IP limit, on `workers.dev` by default | Medium |
 | `v9-admin-token-fanout` | Risky | One static admin token gates a route that wakes every Durable Object | Medium |
 | `v10-queue-history-scan` | Risky | Per-account queue that caps waiting rows but scans its uncapped history on every request and alarm | High |
-| `v11-cron-no-progress` | Risky | Cron embedding job that marks progress on the wrong column, a harvest that re-inserts the feed, and a KV list auth fallback | Medium; Medium or High; Medium or High |
+| `v11-cron-no-progress` | Risky | Cron embedding job that marks progress on the wrong column, a harvest that re-inserts the feed, and a KV list auth fallback | Medium; Low or Medium; Medium or High |
 | `v12-alarm-refresh-window` | Risky | Durable Object refresh alarm that re-arms at a stored time it never moves forward | Critical |
 | `v13-cron-resync-unchanged` | Risky | Every-minute cron that rewrites a whole supplier catalogue into an indexed D1 table with an `ON CONFLICT DO UPDATE` upsert, changed or not | High |
 | `v14-cron-poison-batch` | Risky | Embedding cron that pays Workers AI for a batch before marking it done, with no attempt limit per article | Medium |
@@ -57,7 +57,7 @@ The fixtures are static source code. Nothing here deploys or calls Cloudflare, a
 | `s17-bounded-retry` | Bounded | `v4` with three attempts, backoff, an API key and a per-key limit | Nothing above Low |
 | `s18-public-write-retention` | Bounded | `v8` writing one row per visit to a known link, with 30-day retention and `workers.dev` off | Nothing above Low |
 | `s19-admin-paged-stats` | Bounded | `v9` paged at 50 rooms per call and rate limited | Nothing above Low |
-| `s20-agent-loop-budget` | Bounded | `v6` with four model calls at most, capped tokens, an API key and a per-key limit | Nothing above Low |
+| `s20-agent-loop-budget` | Bounded | `v6` with four model calls at most, capped tokens, an API key and a per-key limit | Nothing above Medium |
 
 Each case folder holds the project plus `expected.json`, which names the expected finding (or the code that must not be flagged), the allowed severities, and an explanation of the execution path. Locations are given as a code snippet rather than a line number, so editing a fixture does not silently break the expectations.
 
@@ -114,7 +114,7 @@ A risky case passes when all of these hold:
 - A second finding on the code of an expected one may repeat the problem, but may not rate it above the highest severity the case accepts there. A correct finding does not excuse an overrated one beside it.
 - No other finding is rated Critical. A finding that matches nothing the case expects or allows fails the case when it is rated above `max_unexpected_severity` (High unless the case sets it). Lower-rated extras are counted in the scorecard as noise.
 
-A bounded case passes when nothing is rated above Low, anywhere.
+A bounded case passes when nothing is rated above its ceiling, anywhere. The ceiling is Low, except for `s20`: its per-key rate limit is not a spending budget, so a report may rate that Medium.
 
 In every case, the summary must agree with the findings: `overall_risk` is the highest severity reported ("None" with no findings), and `autonomous_runaway_paths` is true exactly when a finding is autonomous and rated High or Critical.
 
@@ -125,6 +125,7 @@ In every case, the summary must agree with the findings: `overall_risk` is the h
 3. Add `expected.json` following an existing case:
    - `expected_findings`: each needs `contains`, a snippet that occurs once in `file`, and may list `also`, other snippets on the same path (the handler, the scheduling call, the query the loop runs) that a correct report might cite instead. List only lines that belong to this problem, or a different finding could be credited for it. `exposure` is optional; set it only when one value is clearly right.
    - `may_flag`: a real, smaller problem in the fixture that a report may mention but does not have to, with the highest severity it may be given.
+   - `monthly_usd`: for a repeating path at a fixed rate (an expected finding, or a `may_flag` or `must_not_flag` entry), what it bills a month over the included allowance, in dollars, with the arithmetic in the explanation. `evaltool.py check` fails when the accepted ratings are not the ones that figure gives: under about $5 is Low, about $100 or more is High.
    - `must_not_flag`: code that must not be rated above `max_severity`. Bounded cases also need `max_overall_severity`.
 4. Add the case to the table above; `evaltool.py check` fails if it is missing.
 5. Run `python3 evaltool.py check` and `python3 evaltool.py self-test`.

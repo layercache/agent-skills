@@ -8,7 +8,7 @@
       "file": "src/index.ts",
       "contains": "const res = await fetch(`${env.PRICING_API}/prices`, {",
       "max_severity": "Low",
-      "reason": "The breaker and disabled flag are read from D1 before any API call, a missing row fails closed, each run makes at most one API call for at most 50 SKUs with a 15 s timeout, and failures open the breaker for an hour."
+      "reason": "The breaker and disabled flag are read from D1 before any API call, a missing row fails closed, each run makes at most one API call for at most 50 SKUs with a 15 s timeout, and five failures in a row open the breaker for an hour."
     }
   ]
 }

@@ -19,7 +19,7 @@
         "High"
       ],
       "autonomous": false,
-      "explanation": "pruneHistory() runs on every enqueue, cancel and list call and on every alarm. Its MIN(updated_at) query and the DELETE that follows filter on state and updated_at, which no index covers, so each call reads every delivered, cancelled and failed row kept for the 30-day retention window. MAX_WAITING_PER_ACCOUNT caps only waiting rows, so the cap does not bound what the query reads. The caller adds the rows, so rows read per request grow with the caller's own history up to retention times their rate. The DELETE on local_saves has the same problem."
+      "explanation": "pruneHistory() runs on every enqueue, cancel and list call and on every alarm. Its MIN(updated_at) query and the DELETE that follows filter on state and updated_at, which no index covers, so each call scans the whole table: every delivered, cancelled and failed row kept for the 30-day retention window, and the waiting rows too. MAX_WAITING_PER_ACCOUNT caps only waiting rows, so the cap does not bound what the query reads. The caller adds the rows, so rows read per request grow with the caller's own history up to retention times their rate. The DELETE on local_saves has the same problem."
     }
   ],
   "must_not_flag": []

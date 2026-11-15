@@ -8,7 +8,9 @@ export interface Env {
   ORIGIN: string;
 }
 
-const KEY = /^[a-z0-9][a-z0-9/_-]{0,200}\.(jpg|jpeg|png|webp)$/;
+// Canonical paths only: no leading, trailing or repeated separators.
+const KEY = /^[a-z0-9]+(?:[/_-][a-z0-9]+)*\.(jpg|jpeg|png|webp)$/;
+const MAX_KEY_LENGTH = 200;
 
 const PRESETS = {
   thumb: { width: 160, height: 160, fit: "cover" },
@@ -20,7 +22,7 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
     const key = url.pathname.slice(1);
-    if (request.method !== "GET" || !KEY.test(key)) {
+    if (request.method !== "GET" || key.length > MAX_KEY_LENGTH || !KEY.test(key)) {
       return new Response("not found", { status: 404 });
     }
 
