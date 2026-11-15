@@ -125,6 +125,7 @@ In every case, the summary must agree with the findings: `overall_risk` is the h
 3. Add `expected.json` following an existing case:
    - `expected_findings`: each needs `contains`, a snippet that occurs once in `file`, and may list `also`, other snippets on the same path (the handler, the scheduling call, the query the loop runs) that a correct report might cite instead. List only lines that belong to this problem, or a different finding could be credited for it. `exposure` is optional; set it only when one value is clearly right.
    - `may_flag`: a real, smaller problem in the fixture that a report may mention but does not have to, with the highest severity it may be given.
+   - `monthly_usd`: for a repeating path at a fixed rate (an expected finding, or a `may_flag` or `must_not_flag` entry), what it bills a month over the included allowance, in dollars, with the arithmetic in the explanation. `evaltool.py check` fails when the accepted ratings are not the ones that figure gives: under about $5 is Low, about $100 or more is High.
    - `must_not_flag`: code that must not be rated above `max_severity`. Bounded cases also need `max_overall_severity`.
 4. Add the case to the table above; `evaltool.py check` fails if it is missing.
 5. Run `python3 evaltool.py check` and `python3 evaltool.py self-test`.
