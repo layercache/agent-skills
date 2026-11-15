@@ -151,19 +151,71 @@ def same_file(reported: str, expected: str) -> bool:
     return reported == expected or reported.endswith("/" + expected)
 
 
-def near(finding: dict, anchor: dict) -> bool:
-    """True if the finding's main location or any listed location is near the anchor."""
+def distance(finding: dict, anchor: dict) -> int | None:
+    """Lines between the anchor and the finding's closest location in the same file, or None if not near.
+
+    A location with no line number counts as near, at the edge of the window.
+    """
     places = [finding] + [p for p in finding.get("locations") or [] if isinstance(p, dict)]
+    best = None
     for place in places:
+        if not same_file(str(place.get("file", "")), anchor["file"]):
+            continue
         try:
             line = int(place.get("line") or 0)
         except (TypeError, ValueError):
             line = 0
-        if same_file(str(place.get("file", "")), anchor["file"]) and (
-            line == 0 or abs(line - anchor["line"]) <= LINE_WINDOW
-        ):
-            return True
-    return False
+        gap = LINE_WINDOW if line == 0 else abs(line - anchor["line"])
+        if gap <= LINE_WINDOW and (best is None or gap < best):
+            best = gap
+    return best
+
+
+def near(finding: dict, anchor: dict) -> bool:
+    """True if the finding's main location or any listed location is near the anchor."""
+    return distance(finding, anchor) is not None
+
+
+def owns(finding: dict, anchor: dict, expected: list[dict]) -> bool:
+    """True if the finding is near the anchor and no other expected anchor is closer.
+
+    One finding then cannot stand in for a different expected finding a few lines away.
+    """
+    gap = distance(finding, anchor)
+    if gap is None:
+        return False
+    for other in expected:
+        if other is anchor:
+            continue
+        other_gap = distance(finding, other)
+        if other_gap is not None and other_gap < gap:
+            return False
+    return True
+
+
+def pair_up(options: list[list[int]]) -> dict[int, int]:
+    """Give each expected finding a reported finding of its own, for as many as possible.
+
+    options[e] lists the reported findings that satisfy expected finding e. A reported
+    finding is used once, so one that sits exactly on two expected findings counts for
+    only one of them. Returns {expected index: finding index}.
+    """
+    used: dict[int, int] = {}  # finding index -> expected index
+
+    def place(e: int, seen: set[int]) -> bool:
+        for f in options[e]:
+            if f in seen:
+                continue
+            seen.add(f)
+            # Take a free finding, or one whose current expected finding can use another.
+            if f not in used or place(used[f], seen):
+                used[f] = e
+                return True
+        return False
+
+    for e in range(len(options)):
+        place(e, set())
+    return {e: f for f, e in used.items()}
 
 
 def grade(case_dir: Path, report_text: str) -> tuple[bool, list[str]]:
@@ -175,32 +227,48 @@ def grade(case_dir: Path, report_text: str) -> tuple[bool, list[str]]:
         return False, [str(exc)]
     findings = report.get("findings") or []
     ok = True
-    for anchor in anchors(case_dir, case):
-        matches = [f for f in findings if near(f, anchor)]
-        if anchor["role"] == "expect":
-            hits = [f for f in matches if f.get("severity") in anchor["severity"]]
-            wrong_auto = [f for f in hits if bool(f.get("autonomous")) != bool(anchor["autonomous"])]
-            if hits and len(wrong_auto) == len(hits):
-                ok = False
-                notes.append(f"{anchor['id']}: autonomous should be {anchor['autonomous']}")
-            elif hits:
-                notes.append(f"found {anchor['id']} as {hits[0].get('severity')} ({hits[0].get('id')})")
-            elif matches:
-                ok = False
-                got = ", ".join(str(f.get("severity")) for f in matches)
-                notes.append(f"{anchor['id']}: severity {got}, expected one of {anchor['severity']}")
-            else:
-                ok = False
-                notes.append(f"missed {anchor['id']} at {anchor['file']}:{anchor['line']}")
+    all_anchors = anchors(case_dir, case)
+    expected = [a for a in all_anchors if a["role"] == "expect"]
+    # Each expected finding needs a reported finding of its own. A finding that is equally
+    # near two expected findings is owned by both, so pair them up before judging either.
+    owners = [[i for i, f in enumerate(findings) if owns(f, a, expected)] for a in expected]
+    paired = pair_up([
+        [i for i in mine
+         if findings[i].get("severity") in a["severity"] and bool(findings[i].get("autonomous")) == bool(a["autonomous"])]
+        for mine, a in zip(owners, expected)
+    ])
+    used = {f: e for e, f in paired.items()}
+    for e, anchor in enumerate(expected):
+        if e in paired:
+            hit = findings[paired[e]]
+            notes.append(f"found {anchor['id']} as {hit.get('severity')} ({hit.get('id')})")
+            continue
+        ok = False
+        spare = [findings[i] for i in owners[e] if i not in used]
+        if any(f.get("severity") in anchor["severity"] for f in spare):
+            notes.append(f"{anchor['id']}: autonomous should be {anchor['autonomous']}")
+        elif spare:
+            got = ", ".join(str(f.get("severity")) for f in spare)
+            notes.append(f"{anchor['id']}: severity {got}, expected one of {anchor['severity']}")
+        elif owners[e]:
+            taken = expected[used[owners[e][0]]]["id"]
+            notes.append(
+                f"missed {anchor['id']} at {anchor['file']}:{anchor['line']}: "
+                f"the finding there already counts as {taken}, and one finding cannot cover two"
+            )
         else:
-            limit = rank(anchor["max_severity"])
-            over = [f for f in matches if rank(str(f.get("severity"))) > limit]
-            if over:
-                ok = False
-                notes.append(
-                    f"false positive at {anchor['file']}:{anchor['line']}: "
-                    f"{over[0].get('severity')} {over[0].get('title', '')!r}"
-                )
+            notes.append(f"missed {anchor['id']} at {anchor['file']}:{anchor['line']}")
+    for anchor in all_anchors:
+        if anchor["role"] == "expect":
+            continue
+        limit = rank(anchor["max_severity"])
+        over = [f for f in findings if near(f, anchor) and rank(str(f.get("severity"))) > limit]
+        if over:
+            ok = False
+            notes.append(
+                f"false positive at {anchor['file']}:{anchor['line']}: "
+                f"{over[0].get('severity')} {over[0].get('title', '')!r}"
+            )
     cap = case.get("max_overall_severity")
     if cap:
         over = [f for f in findings if rank(str(f.get("severity"))) > rank(cap)]
@@ -255,6 +323,32 @@ def self_test() -> list[str]:
         ok, notes = grade(case_dir, synthetic_report(via_locations))
         if not ok:
             errors.append(f"{case_dir.name}: report matching only via locations failed: {notes}")
+        expected = [a for a in anchors(case_dir, case) if a["role"] == "expect"]
+        for i, anchor in enumerate(expected):
+            for j, other in enumerate(expected):
+                if j == i:
+                    continue
+                # A finding on this anchor that also lists the exact line of another one is
+                # equally near both. It counts for one, so the other still needs its own.
+                both = {**perfect[i], "locations": [{"file": other["file"], "line": other["line"]}]}
+                rest = [f for k, f in enumerate(perfect) if k not in (i, j)]
+                ok, _ = grade(case_dir, synthetic_report([both] + rest))
+                if ok:
+                    errors.append(f"{case_dir.name}: one finding on {anchor['id']} and {other['id']} satisfied both")
+                ok, notes = grade(case_dir, synthetic_report([both, perfect[j]] + rest))
+                if not ok:
+                    errors.append(f"{case_dir.name}: a finding on two anchors kept {other['id']} from its own: {notes}")
+            others = [b for b in expected if b is not anchor and b["file"] == anchor["file"]]
+            if not others:
+                continue
+            # One finding on this anchor that also lists a line just inside the window of
+            # each other anchor in the same file must not satisfy those anchors too.
+            reach = [{"file": b["file"], "line": b["line"] + (LINE_WINDOW if b["line"] > anchor["line"] else -LINE_WINDOW)}
+                     for b in others]
+            one = [{**perfect[i], "locations": [{"file": anchor["file"], "line": anchor["line"]}] + reach}]
+            ok, _ = grade(case_dir, synthetic_report(one))
+            if ok:
+                errors.append(f"{case_dir.name}: one finding satisfied {len(others) + 1} expected findings")
         if case["kind"] == "vulnerable":
             flipped = [{**f, "autonomous": not f["autonomous"]} for f in perfect]
             ok, _ = grade(case_dir, synthetic_report(flipped))

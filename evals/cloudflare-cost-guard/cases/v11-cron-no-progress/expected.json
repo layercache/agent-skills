@@ -8,10 +8,11 @@
       "file": "src/jobs.ts",
       "contains": "UPDATE articles SET embedded_at = ? WHERE source_id = ?",
       "severity": [
-        "Critical"
+        "Medium",
+        "High"
       ],
       "autonomous": true,
-      "explanation": "embedPending() selects the 50 oldest rows with embedded_at IS NULL, embeds them with Workers AI, upserts them to Vectorize and inserts embeddings rows, then marks them done with WHERE source_id = ? bound to the integer id. Nothing matches, so the same 50 rows are embedded again every 5 minutes forever with no user activity."
+      "explanation": "embedPending() selects the 50 oldest rows with embedded_at IS NULL, embeds them with Workers AI, upserts them to Vectorize and inserts embeddings rows, then marks them done with WHERE source_id = ? bound to the integer id. Nothing matches, so the same 50 rows are embedded again every 5 minutes forever with no user activity. The batch is capped at 50, so the cost rate is fixed: at bge-base-en-v1.5's 512-token input limit that is about 7.4M tokens (about 45,000 Neurons) a day, roughly 4.5x the included 10,000 Neurons a day, or about $11 a month. Rated by steady volume, that is Medium; High is allowed for runs that assume a larger batch cost."
     },
     {
       "id": "harvest-reinsert",
@@ -19,11 +20,11 @@
       "file": "src/jobs.ts",
       "contains": "\"INSERT INTO articles (source_id, title, body, fetched_at) VALUES (?, ?, ?, ?)\"",
       "severity": [
-        "High",
-        "Critical"
+        "Medium",
+        "High"
       ],
       "autonomous": true,
-      "explanation": "harvest() inserts every item of the latest-100 feed on every 5-minute run with a plain INSERT; source_id has only a non-unique index, so overlapping items are stored again each run. articles grows without retention, and every duplicate becomes embedding work once progress is recorded."
+      "explanation": "harvest() inserts every item of the latest-100 feed on every 5-minute run with a plain INSERT; source_id has only a non-unique index, so overlapping items are stored again each run. articles grows without retention (up to about 864,000 duplicate rows a month, until D1's 10 GB limit), and every duplicate becomes embedding work once progress is recorded. The writes stay inside the included allowance, so this is rated on the growing data, not the write volume."
     },
     {
       "id": "kv-list-auth-fallback",

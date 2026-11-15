@@ -1,6 +1,6 @@
 # Pricing and limits snapshot
 
-> **Time-sensitive.** Figures below were copied from Cloudflare's documentation on **2026-10-10** and will change. Before quoting a number in a report, confirm it at the linked source if you have network access, and always state the date of the figure you used. If you cannot confirm it, say "per Cloudflare docs as of 2026-10-10" or describe the mechanism without a number. Dollar figures appear only as a "cost at a stated rate" (an operation count at a stated volume times a documented rate, with its date), never as a total bill or anything the user could mistake for a quote.
+> **Time-sensitive.** Figures below were copied from Cloudflare's documentation on **2026-10-10** (Workers AI on **2026-11-14**) and will change. Before quoting a number in a report, confirm it at the linked source if you have network access, and always state the date of the figure you used. If you cannot confirm it, say "per Cloudflare docs as of 2026-10-10" or describe the mechanism without a number. Dollar figures appear only as a "cost at a stated rate" (an operation count at a stated volume times a documented rate, with its date), never as a total bill or anything the user could mistake for a quote.
 
 All prices in USD. "Paid" means the Workers Paid plan, which has a $5/month account minimum. That minimum is **not** a spending cap: usage beyond the included amounts is billed.
 
@@ -108,10 +108,24 @@ Source: [Workers pricing, Workflows section](https://developers.cloudflare.com/w
 
 ## Workers AI
 
-Source: [Workers AI pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/) (page updated 2026-10-09).
+Source: [Workers AI pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/) (page updated 2026-11-12, checked 2026-11-14), [bge-base-en-v1.5 model page](https://developers.cloudflare.com/workers-ai/models/bge-base-en-v1.5/) (checked 2026-11-14).
 
-- 10,000 Neurons/day free. Paid: $0.011 per 1,000 Neurons beyond that. Per-model Neuron rates vary.
+- 10,000 Neurons/day free, reset daily at 00:00 UTC. Paid: $0.011 per 1,000 Neurons beyond that. Over a 30-day month the free allocation is about 300,000 Neurons; use that as the included allowance when you compare a steady volume.
 - Free plan cannot exceed the daily allocation; further calls fail.
+- Rates for common models (the pricing page lists more). The price per million tokens is the Neuron figure × $0.011 / 1,000.
+
+| Model | Input, per million tokens | Output, per million tokens |
+| ----- | ------------------------- | -------------------------- |
+| `@cf/baai/bge-small-en-v1.5` | $0.020 (1,841 Neurons) | n/a |
+| `@cf/baai/bge-base-en-v1.5` | $0.067 (6,058 Neurons) | n/a |
+| `@cf/baai/bge-large-en-v1.5` | $0.204 (18,582 Neurons) | n/a |
+| `@cf/baai/bge-m3` | $0.012 (1,075 Neurons) | n/a |
+| `@cf/meta/llama-3.1-8b-instruct` | $0.282 (25,608 Neurons) | $0.827 (75,147 Neurons) |
+| `@cf/meta/llama-3.1-8b-instruct-fp8` | $0.152 (13,778 Neurons) | $0.287 (26,128 Neurons) |
+| `@cf/meta/llama-3.3-70b-instruct-fp8-fast` | $0.293 (26,668 Neurons) | $2.253 (204,805 Neurons) |
+
+- `bge-base-en-v1.5` takes at most 512 input tokens per text. When the text length cannot be seen, assume each text uses the model's maximum and say so.
+- For a model not listed here, give the token counts and the Neuron price, and say that the dollar figure needs the model's rate.
 
 ## AI Gateway
 
