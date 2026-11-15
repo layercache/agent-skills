@@ -4,7 +4,7 @@ description: Read-only audit of a Cloudflare codebase for runaway usage and surp
 license: MIT
 metadata:
   author: layercache
-  version: "1.7.0"
+  version: "1.8.0"
 ---
 
 # Cloudflare Cost Guard
