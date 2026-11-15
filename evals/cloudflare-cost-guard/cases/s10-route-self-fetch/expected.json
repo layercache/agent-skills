@@ -1,0 +1,14 @@
+{
+  "kind": "safe",
+  "summary": "A docs Worker on a plain zone route that fetches its own URLs for related pages. On a route, without the global_fetch_strictly_public flag, those calls go to the origin and never run the Worker again.",
+  "expected_findings": [],
+  "max_overall_severity": "Low",
+  "must_not_flag": [
+    {
+      "file": "src/index.ts",
+      "contains": "ctx.waitUntil(fetch(new URL(`/docs/${slug}`, url.origin).toString()));",
+      "max_severity": "Low",
+      "reason": "The Worker is served by a route pattern, not a Custom Domain, and sets no global_fetch_strictly_public flag, so a same-zone fetch() goes to the zone's origin server and skips Workers: there is no recursion and no fan-out of invocations. workers.dev and preview URLs are off. What is left is one cached KV read per public request. On a Custom Domain the same code would recurse with fan-out; that belongs under \"Gated by\", not in the as-deployed rating."
+    }
+  ]
+}

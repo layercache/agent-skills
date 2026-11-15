@@ -1,0 +1,14 @@
+{
+  "kind": "safe",
+  "summary": "The same uptime monitor on a 30-minute schedule: 600 queue messages every half hour.",
+  "expected_findings": [],
+  "max_overall_severity": "Low",
+  "must_not_flag": [
+    {
+      "file": "src/index.ts",
+      "contains": "await env.PROBES.sendBatch(probes.slice(i, i + 100).map((body) => ({ body })));",
+      "max_severity": "Low",
+      "reason": "600 x 3 x 1,440 runs is about 2.6M queue operations a month. That is over the 1M included, but by about $0.64 a month at $0.40 per million: under about $5 a month is Low. The work per run is fixed and the consumer writes only on a state change."
+    }
+  ]
+}

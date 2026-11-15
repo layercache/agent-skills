@@ -1,0 +1,30 @@
+{
+  "kind": "vulnerable",
+  "summary": "The same pipeline and key-list fallback. LEGACY_KEY_SCAN is \"false\" at the top level but \"true\" in env.staging, which has its own public Custom Domain.",
+  "max_unexpected_severity": "Low",
+  "expected_findings": [
+    {
+      "id": "kv-list-fallback-on-in-staging",
+      "service": "KV",
+      "file": "src/auth.ts",
+      "contains": "await env.KEYS.list<{ secret: string; name: string }>({ prefix: \"legacy:\", cursor })",
+      "severity": [
+        "Medium",
+        "High"
+      ],
+      "autonomous": false,
+      "exposure": [
+        "external"
+      ],
+      "explanation": "vars are not inherited by env blocks, and env.staging sets LEGACY_KEY_SCAN to \"true\". The staging Worker is deployed on its own public hostname and bills the same account, so the fallback is live there: any request with an unknown token lists every legacy key before the 401, with no rate limit in front. It is rated where it is on, not at the top-level value."
+    }
+  ],
+  "must_not_flag": [
+    {
+      "file": "src/jobs.ts",
+      "contains": "\"UPDATE articles SET embed_attempts = embed_attempts + 1, embed_gave_up_at = CASE WHEN embed_attempts + 1 >= ? THEN ? END WHERE id = ?\"",
+      "max_severity": "Low",
+      "reason": "The pipeline is the bounded one from s6: an attempt limit is saved before each paid embedding call, progress is marked by primary key, and source_id is unique."
+    }
+  ]
+}

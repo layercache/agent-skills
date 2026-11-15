@@ -14,11 +14,18 @@
         }
       ],
       "severity": [
-        "Medium",
         "High"
       ],
       "autonomous": true,
-      "explanation": "syncCatalogue() runs every minute, pages through the whole supplier catalogue and upserts every product. sku is the primary key, so the table does not grow, but the DO UPDATE has no WHERE, so every row is rewritten on every run and three secondary indexes are updated with it; synced_at changes on every run, so no row is ever unchanged. There is no ETag or If-Modified-Since on the fetch and no comparison with stored values. At 3,000 products that is up to 3,000 x 4 rows written x 43,200 runs, about 518M rows written per month, roughly 10x the 50M included on Workers Paid, every month, with no users."
+      "explanation": "syncCatalogue() runs every minute, pages through the whole supplier catalogue and upserts every product. sku is the primary key, so the table does not grow, but the DO UPDATE has no WHERE, so every row is rewritten on every run and three secondary indexes are updated with it; synced_at changes on every run, so no row is ever unchanged. There is no ETag or If-Modified-Since on the fetch and no comparison with stored values. At 3,000 products that is up to 3,000 x 4 rows written x 43,200 runs, about 518M rows written per month against 50M included on Workers Paid: about $470 a month at $1.00 per million, every month, with no users. That is well over about $100 a month, and the catalogue's size cannot be seen from the repository, so High on either count."
+    }
+  ],
+  "may_flag": [
+    {
+      "file": "src/sync.ts",
+      "contains": "while (next) {",
+      "max_severity": "Medium",
+      "reason": "fetchCatalogue() follows the supplier's next link with no page cap or timeout, so the supplier sets how many pages one run fetches. It is a real, smaller problem on the same sync; s8 caps it at 20 pages."
     }
   ],
   "must_not_flag": []

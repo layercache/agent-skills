@@ -47,7 +47,8 @@ Look at every `setAlarm(` call and every `alarm(` handler and answer:
 
 ## Typical severities
 
-- `alarm()` always reschedules with no idle/stop condition: **Critical** (autonomous and unbounded).
+- `alarm()` always reschedules with no idle or stop condition, and its rate has no limit because the delay can be zero (`Date.now()`, an error path, a stored time), or any caller or new user adds another object that ticks forever, or the work per tick grows: **Critical** (autonomous and unbounded).
+- `alarm()` always reschedules at a fixed interval, on a fixed set of objects (a singleton scheduler, a few named shards), doing capped work per tick: a repeating path at a fixed rate. Rate it by steady volume: ticks per month × what one tick bills, priced over the allowance (SKILL.md). A singleton that ticks once a minute is about 43,200 requests and 43,200 `setAlarm()` rows a month, well inside the allowance: **Low**, or not a finding. Say that it never stops and what would make it grow (more objects, a shorter interval, more work per tick).
 - Reschedules from stored state that the handler never moves forward, so once a window opens every run re-arms at once until a deadline days away: **Critical** (autonomous, effectively unbounded), even though it is dormant until the window opens; say when it starts.
 - Reschedules only while work exists, but the "work exists" check can stay true for a reason outside the handler (for example a stale session that never expires): **High** or **Medium** depending on evidence.
 - Bounded by a durable tick limit, idle shutdown and a minimum interval: not a finding, or **Low** if monitoring is missing.

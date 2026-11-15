@@ -149,6 +149,9 @@ def check_cases() -> list[str]:
             bad = [e for e in item.get("exposure", []) if e not in EXPOSURES]
             if bad:
                 errors.append(f"{name}: unknown exposure {bad}")
+            bad = [s for s in item.get("severity_if_enabled", []) if s not in SEVERITIES[1:]]
+            if bad or not isinstance(item.get("gated_by", ""), str):
+                errors.append(f"{name}: gated_by must be a string and severity_if_enabled a list of severities")
         for key in ("may_flag", "must_not_flag"):
             for item in case.get(key, []):
                 for field in ("file", "contains", "max_severity", "reason"):
@@ -281,11 +284,17 @@ def label(finding: dict) -> str:
 
 
 def field_problems(finding: dict, anchor: dict) -> list[str]:
-    """What is wrong with the finding's exposure, where the case names one."""
+    """What is wrong with the finding's exposure and gating fields, where the case names them."""
     problems = []
     allowed = anchor.get("exposure")
     if allowed and finding.get("exposure") not in allowed:
         problems.append(f"exposure {finding.get('exposure')!r}, expected one of {allowed}")
+    gate = anchor.get("gated_by")
+    if gate and gate.lower() not in str(finding.get("gated_by") or "").lower():
+        problems.append(f"gated_by {finding.get('gated_by')!r} does not name {gate}")
+    flipped = anchor.get("severity_if_enabled")
+    if flipped and finding.get("severity_if_enabled") not in flipped:
+        problems.append(f"severity_if_enabled {finding.get('severity_if_enabled')!r}, expected one of {flipped}")
     return problems
 
 
@@ -552,7 +561,9 @@ def self_test() -> list[str]:
 
         perfect = [
             {"id": f"CG-{i}", "severity": a["severity"][0], "file": a["file"], "line": a["line"],
-             "autonomous": a["autonomous"], "exposure": (a.get("exposure") or ["external"])[0], "title": a["id"]}
+             "autonomous": a["autonomous"], "exposure": (a.get("exposure") or ["external"])[0], "title": a["id"],
+             "gated_by": f"{a['gated_by']}=false" if a.get("gated_by") else None,
+             "severity_if_enabled": (a.get("severity_if_enabled") or [None])[0]}
             for i, a in enumerate(expected, 1)
         ]
         if not passes(perfect):
@@ -610,6 +621,10 @@ def self_test() -> list[str]:
                 errors.append(f"{name}: an unexpected Low finding failed the case")
             if any("exposure" in a for a in expected) and passes([{**f, "exposure": "n/a"} for f in perfect]):
                 errors.append(f"{name}: report with the wrong exposure passed")
+            if any("gated_by" in a for a in expected) and passes(
+                [{**f, "gated_by": None, "severity_if_enabled": None} for f in perfect]
+            ):
+                errors.append(f"{name}: report without the gating fields passed")
             if passes(perfect, overall_risk="None"):
                 errors.append(f"{name}: overall_risk that disagrees with the findings passed")
             wrong = not any(f["autonomous"] and rank(f["severity"]) >= rank("High") for f in perfect)

@@ -18,14 +18,17 @@ The fixtures are static source code. Nothing here deploys or calls Cloudflare, a
 | `v4-retry-no-max` | Risky | Retry loop with no maximum around a metered geocoding API | High |
 | `v5-unbounded-d1-writes` | Risky | Every-minute cron that rewrites every row of a growing indexed D1 table | Critical |
 | `v6-ai-agent-loop` | Risky | Workers AI agent loop with no iteration or token budget | High |
-| `v7-background-fanout` | Risky | Every-5-minute cron doing KV, D1, AI, R2 and Queue work for every user | Critical or High |
+| `v7-background-fanout` | Risky | Every-5-minute cron doing KV, D1, AI, R2 and Queue work for every user | Critical |
 | `v8-unauthenticated-write` | Risky | Every public request writes one D1 row and one KV key with no retention, bounded only by a per-IP limit, on `workers.dev` by default | Medium |
-| `v9-admin-token-fanout` | Risky | One static admin token gates a route that wakes every Durable Object | Medium or High |
+| `v9-admin-token-fanout` | Risky | One static admin token gates a route that wakes every Durable Object | Medium |
 | `v10-queue-history-scan` | Risky | Per-account queue that caps waiting rows but scans its uncapped history on every request and alarm | High |
-| `v11-cron-no-progress` | Risky | Cron embedding job that marks progress on the wrong column, a harvest that re-inserts the feed, and a KV list auth fallback | Medium or High for each |
+| `v11-cron-no-progress` | Risky | Cron embedding job that marks progress on the wrong column, a harvest that re-inserts the feed, and a KV list auth fallback | Medium; Medium or High; Medium or High |
 | `v12-alarm-refresh-window` | Risky | Durable Object refresh alarm that re-arms at a stored time it never moves forward | Critical |
-| `v13-cron-resync-unchanged` | Risky | Every-minute cron that rewrites a whole supplier catalogue into an indexed D1 table with an `ON CONFLICT DO UPDATE` upsert, changed or not | Medium or High |
-| `v14-cron-poison-batch` | Risky | Embedding cron that pays Workers AI for a batch before marking it done, with no attempt limit per article | Medium or High |
+| `v13-cron-resync-unchanged` | Risky | Every-minute cron that rewrites a whole supplier catalogue into an indexed D1 table with an `ON CONFLICT DO UPDATE` upsert, changed or not | High |
+| `v14-cron-poison-batch` | Risky | Embedding cron that pays Workers AI for a batch before marking it done, with no attempt limit per article | Medium |
+| `v15-flag-off-key-scan` | Risky | `s6` with the KV list auth fallback behind a flag that the config turns off | Low, gated by the flag, Medium or High if enabled |
+| `v16-flag-on-in-staging` | Risky | `v15` with the flag off at the top level and on in `env.staging`, which has its own public hostname | Medium or High |
+| `v17-cron-queue-fanout` | Risky | Uptime monitor whose every-minute cron enqueues 600 probes: about $31 a month of queue operations, by design | Medium |
 | `s1-bounded-alarm` | Bounded | Alarm with minimum interval, idle shutdown and persisted limits; D1 lookups by primary key | Nothing above Low |
 | `s2-bounded-queue-consumer` | Bounded | Consumer with `max_retries`, dead letter queue, backoff and idempotency | Nothing above Low |
 | `s3-bounded-d1-batch` | Bounded | Authenticated, rate-limited import capped at 500 rows | Nothing above Low |
@@ -34,6 +37,9 @@ The fixtures are static source code. Nothing here deploys or calls Cloudflare, a
 | `s6-cron-with-progress` | Bounded | `v11` with a unique `source_id`, an index on the pending query, progress marked by primary key, an attempt limit saved before each embedding call, and a direct legacy key lookup | Nothing above Low |
 | `s7-bounded-alarm-refresh` | Bounded | `v12` refreshing only after new messages, with a 15-minute alarm floor, a per-user rate limit, a message cap and cleanup at expiry | Nothing above Low |
 | `s8-cron-resync-changed-only` | Bounded | `v13` fetching only products changed since a saved (updated_at, sku) cursor, capped at 20 pages a run, with an upsert that skips unchanged rows | Nothing above Low |
+| `s9-singleton-scheduler` | Bounded | One named Durable Object whose alarm reschedules every minute forever, with capped work per tick | Nothing above Low |
+| `s10-route-self-fetch` | Bounded | Worker on a plain zone route that fetches its own URLs with fan-out; on a route those calls go to the origin and do not re-enter | Nothing above Low |
+| `s11-cron-queue-fanout-slow` | Bounded | `v17` on a 30-minute schedule: over the queue allowance by well under a dollar a month | Nothing above Low |
 
 Each case folder holds the project plus `expected.json`, which names the expected finding (or the code that must not be flagged), the allowed severities, and an explanation of the execution path. Locations are given as a code snippet rather than a line number, so editing a fixture does not silently break the expectations.
 
