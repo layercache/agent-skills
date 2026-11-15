@@ -71,7 +71,7 @@ AGENT_CMD="claude -p" ./run.sh v1-do-alarm-reschedule
 python3 evaltool.py grade-all path/to/reports
 ```
 
-A case passes when every expected finding is reported within 8 lines of its location at an allowed severity, and a bounded case has nothing above Low. Each reported finding counts only for the expected finding nearest to it, so one finding cannot stand in for another a few lines away.
+A case passes when every expected finding is reported within 8 lines of its location at an allowed severity, and a bounded case has nothing above Low. Each reported finding counts for one expected finding only: the nearest, or one of the two when it is equally near both. So one finding cannot stand in for another a few lines away, or cover two by listing both locations.
 
 ## Adding a case
 
