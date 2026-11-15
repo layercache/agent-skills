@@ -109,8 +109,8 @@ A search hit is only a lead. Confirm every pattern by tracing the path (SKILL.md
 
 ## P13 Browser session or container left running
 
-- **Leads:** `puppeteer\.launch\(`, `launch\(env\.BROWSER`, `keep_alive`, `browser\.close\(`, `extends Container`, `sleepAfter`, `renewActivityTimeout\(`.
-- **Real when:** `launch()` has no `close()` in `finally`; sessions are reused across alarms to stay warm; `sleepAfter` is hours or days; `renewActivityTimeout()` runs on a timer; health checks keep instances awake.
+- **Leads:** `puppeteer\.launch\(`, `launch\(env\.BROWSER`, `keep_alive`, `browser\.close\(`, `ctx\.container`, `container\.start\(`, `setInactivityTimeout\(`, and for the deprecated `@cloudflare/containers` package `extends Container`, `sleepAfter`, `renewActivityTimeout\(`.
+- **Real when:** `launch()` has no `close()` in `finally`; sessions are reused across alarms to stay warm, or a command is sent inside every `keep_alive` window; `setInactivityTimeout()` or `sleepAfter` is hours; `renewActivityTimeout()` runs on a timer; an alarm, timer or health check keeps the container's Durable Object active so the container never stops.
 - **Starting severity:** Medium; High if driven by an alarm or cron.
 
 ## P14 Attacker-controlled object or instance count

@@ -9,10 +9,16 @@ For every skill under skills/ (the template is skipped: its paths are examples):
 - no symlinks, which installers may not copy;
 - nothing deployable: no Wrangler config, package.json or JavaScript/TypeScript
   files (example code belongs in fenced Markdown snippets);
-- SKILL.md stays under 500 lines, as CONTRIBUTING.md asks.
+- SKILL.md stays under 500 lines, as CONTRIBUTING.md asks;
+- a dated snapshot is quoted consistently: a file may declare
+  `<!-- snapshot: YYYY-MM-DD -->`, and then every "snapshot YYYY-MM-DD",
+  "snapshot dated YYYY-MM-DD" or "as of YYYY-MM-DD" in the skill must give that
+  date. A snapshot older than 60 days prints a warning (it does not fail).
 
 Uses only the Python standard library.
 """
+import datetime
+import os
 import re
 import sys
 from pathlib import Path
@@ -25,6 +31,9 @@ DEPLOYABLE_SUFFIXES = {".js", ".mjs", ".cjs", ".ts", ".mts", ".cts", ".jsx", ".t
 LINK = re.compile(r"\[[^\]]*\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)")
 BACKTICK_PATH = re.compile(r"`((?:scripts|references|assets)/[^`\s]+)`")
 FENCE = re.compile(r"^(```|~~~)")
+SNAPSHOT_DECL = re.compile(r"<!--\s*snapshot:\s*(\d{4}-\d{2}-\d{2})\s*-->")
+SNAPSHOT_QUOTE = re.compile(r"(?:snapshot(?: dated)?|as of) (\d{4}-\d{2}-\d{2})")
+MAX_SNAPSHOT_AGE_DAYS = 60
 
 
 def strip_fences(text: str) -> str:
@@ -78,6 +87,35 @@ def check_skill(skill: Path) -> list[str]:
     return errors
 
 
+def check_snapshot(skill: Path) -> tuple[list[str], list[str]]:
+    """Return (errors, warnings) for the skill's dated snapshot, if it declares one."""
+    files = [p for p in sorted(skill.rglob("*.md")) if p.is_file()]
+    texts = {p: p.read_text(encoding="utf-8") for p in files}
+    declared = {m.group(1) for text in texts.values() for m in SNAPSHOT_DECL.finditer(text)}
+    if not declared:
+        return [], []
+    if len(declared) > 1:
+        return [f"{skill.relative_to(ROOT)}: more than one snapshot date declared: {sorted(declared)}"], []
+    date = declared.pop()
+    errors = []
+    for path, text in texts.items():
+        for lineno, line in enumerate(text.splitlines(), 1):
+            for m in SNAPSHOT_QUOTE.finditer(line):
+                if m.group(1) != date:
+                    errors.append(
+                        f"{path.relative_to(ROOT)}:{lineno}: quotes snapshot date {m.group(1)}, "
+                        f"but the declared snapshot is {date}"
+                    )
+    warnings = []
+    age = (datetime.date.today() - datetime.date.fromisoformat(date)).days
+    if age > MAX_SNAPSHOT_AGE_DAYS:
+        warnings.append(
+            f"{skill.relative_to(ROOT)}: snapshot dated {date} is {age} days old; "
+            "re-check the figures against the linked sources and update the date"
+        )
+    return errors, warnings
+
+
 def check_target(skill: Path, rel: Path, target: str, resolved: Path) -> list[str]:
     if not resolved.is_relative_to(skill.resolve()):
         return [f"{rel}: '{target}' points outside the skill folder"]
@@ -91,7 +129,12 @@ def main() -> int:
     status = 0
     for skill in skills:
         errors = check_skill(skill)
+        snapshot_errors, warnings = check_snapshot(skill)
+        errors += snapshot_errors
         label = skill.relative_to(ROOT)
+        for warning in warnings:
+            # GitHub Actions shows ::warning:: lines as annotations on the run.
+            print(f"::warning::{warning}" if os.environ.get("GITHUB_ACTIONS") else f"warn  {warning}")
         if errors:
             status = 1
             print(f"FAIL  {label}")

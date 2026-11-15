@@ -9,7 +9,7 @@ metadata:
 
 # Cloudflare Cost Guard
 
-Audit a codebase for execution paths that can generate uncontrolled billable usage on Cloudflare, especially on Workers Paid, where the monthly subscription is a minimum charge, not a spending limit. The audit works from source code alone and needs no Cloudflare credentials.
+Audit a codebase for execution paths that can generate uncontrolled billable usage on Cloudflare, especially on Workers Paid, where the monthly subscription is a minimum charge, not a spending limit, and the optional spending limits cover only Workers and Durable Objects. The audit works from source code alone and needs no Cloudflare credentials.
 
 This skill reports. It does not fix.
 
@@ -106,9 +106,9 @@ Then check the **global safeguards** that no single path shows. When a missing o
 ### Phase E: Assess billing exposure
 
 1. For each affected service, explain how it is billed (requests, duration, rows, operations, neurons, browser hours, vCPU and memory time) using [references/services.md](references/services.md).
-2. Use [references/pricing-and-limits.md](references/pricing-and-limits.md) for numbers. It is a dated snapshot: if you can reach `developers.cloudflare.com`, confirm the figures you quote and say which source and date you used. Express exposure as operation counts (requests per day, rows written per run). Give each finding a **cost at a stated rate**: the operation count per stated volume (per 1M outside requests, per day, per run) times the documented rate, with the rate's source and date, for example "per 1M junk requests: ~2M D1 rows written ≈ $2 at $1.00 per million (snapshot 2026-10-10)". State the volume you assumed. When there is no documented per-call rate (Neurons for a specific model, a third-party API), give the operation counts and the unit rate, and say the dollar figure cannot be computed from the docs. Never add these up into a total bill or predict an invoice. When a figure is unverified or undocumented (for example whether a no-op `UPDATE` counts as a row written), describe the mechanism and list it as an evidence gap.
+2. Use [references/pricing-and-limits.md](references/pricing-and-limits.md) for numbers. It is a dated snapshot: if you can reach `developers.cloudflare.com`, confirm the figures you quote and say which source and date you used. Express exposure as operation counts (requests per day, rows written per run). Give each finding a **cost at a stated rate**: the operation count per stated volume (per 1M outside requests, per day, per run) times the documented rate, with the rate's source and date, for example "per 1M junk requests: ~2M D1 rows written ≈ $2 at $1.00 per million (snapshot 2026-11-15)". State the volume you assumed. When there is no documented per-call rate (Neurons for a specific model, a third-party API), give the operation counts and the unit rate, and say the dollar figure cannot be computed from the docs. Never add these up into a total bill or predict an invoice. When a figure is unverified or undocumented (for example whether a no-op `UPDATE` counts as a row written), describe the mechanism and list it as an evidence gap.
 3. Classify every protection as one of: **verified in code**, **platform-enforced** (documented Cloudflare limit), **account setting to verify manually**, or **unknown**.
-4. Read [references/account-controls.md](references/account-controls.md) and build the dashboard checklist. Budget alerts and usage notifications only send email; they do not stop usage. Workers Paid has no hard spending cap.
+4. Read [references/account-controls.md](references/account-controls.md) and build the dashboard checklist. Budget alerts and usage notifications only send email; they do not stop usage. Spending limits exist only for Workers and Durable Objects, apply only if the account owner has set them, and are a backstop, not a maximum bill. In each finding's recommendation, after the code fix, say whether one of them would stop the path once it takes effect, or that the cost is in a product no limit covers. Never lower a severity because a limit might be set.
 
 ### Severity and confidence
 

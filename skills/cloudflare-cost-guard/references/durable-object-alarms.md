@@ -2,7 +2,7 @@
 
 Alarms are the most common source of autonomous runaway cost on Cloudflare: once set, an alarm can keep a Durable Object running forever with no user traffic.
 
-Source: [Durable Objects Alarms API](https://developers.cloudflare.com/durable-objects/api/alarms/) and [Durable Objects pricing](https://developers.cloudflare.com/durable-objects/platform/pricing/), checked 2026-10-10.
+Source: [Durable Objects Alarms API](https://developers.cloudflare.com/durable-objects/api/alarms/), [Durable Objects pricing](https://developers.cloudflare.com/durable-objects/platform/pricing/) and [Durable Objects spending limits](https://developers.cloudflare.com/durable-objects/platform/spend-management/), checked 2026-11-15.
 
 ## Semantics that matter for cost
 
@@ -31,6 +31,8 @@ An alarm that reschedules every second costs roughly 86,400 requests per object 
 
 **What drives the bill.** In that incident the cost was SQLite rows read and written by each run, not duration: an object that stays awake all month costs a few dollars of duration. Lead the cost line with rows read and written per run times the loop rate, then requests, then duration.
 
+**What stops a loop at the account level.** Only a Durable Objects spending limit, and only if the account owner has set one. Once it takes effect, new `setAlarm()` calls and SQL reads and writes are rejected, so the loop cannot re-arm; alarms already pending are held until the block ends. It is account-wide, it can be passed before it applies, and it blocks every other Durable Object in the account too ([account-controls.md](account-controls.md)). Budget alerts only send email. Never lower an alarm finding because a limit might be set: the repository cannot show it.
+
 ## What makes an alarm a finding
 
 Look at every `setAlarm(` call and every `alarm(` handler and answer:
@@ -58,3 +60,4 @@ For an alarm finding, recommend all of these, adapted to the code:
 - A retry or tick budget stored in Durable Object storage, checked before rescheduling, that stops rescheduling once exhausted. A counter held in memory resets when the object is evicted, so the loop survives restarts.
 - The kill switch from the global safeguards, read before billable work and before rescheduling.
 - A regression test that drives `alarm()` with a refresh or retry time already in the past and asserts the next alarm is at least the floor away.
+- As a backstop after the code fix: a Durable Objects spending limit with a notification email, set in the dashboard. Say that it is a backstop, not a maximum bill, and that reaching it pauses every Durable Object in the account.
