@@ -646,8 +646,9 @@ def self_test() -> list[str]:
             wrong = [{"id": "CG-1", "severity": "High", "file": anchor["file"], "line": anchor["line"]}]
             if passes(wrong):
                 errors.append(f"{name}: false positive passed a safe case")
-            if passes([{**stray, "severity": "Medium"}]):
-                errors.append(f"{name}: a Medium finding away from the anchors passed a safe case")
+            above = SEVERITIES[rank(case["max_overall_severity"]) + 1]
+            if passes([{**stray, "severity": above}]):
+                errors.append(f"{name}: a {above} finding away from the anchors passed a safe case")
             if passes([], overall_risk="Low"):
                 errors.append(f"{name}: overall_risk 'Low' with no findings passed")
         for forbid in (a for a in anchors(case_dir, case) if a["role"] == "forbid"):

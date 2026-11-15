@@ -32,11 +32,11 @@
         }
       ],
       "severity": [
-        "Medium",
-        "High"
+        "Low",
+        "Medium"
       ],
       "autonomous": true,
-      "explanation": "harvest() inserts every item of the latest-100 feed on every 5-minute run with a plain INSERT; source_id has only a non-unique index, so overlapping items are stored again each run. articles grows without retention (up to about 864,000 duplicate rows a month, until D1's 10 GB limit), and every duplicate becomes embedding work once progress is recorded. The writes stay inside the included allowance, so this is rated on the growing data, not the write volume."
+      "explanation": "harvest() inserts every item of the latest-100 feed on every 5-minute run with a plain INSERT; source_id has only a non-unique index, so overlapping items are stored again each run and articles grows without retention, by up to about 864,000 duplicate rows a month. What that bills is small and has a ceiling: about 1.7M rows written a month (each row plus its index entry) stays inside the 50M included, and the database cannot grow past D1's 10 GB limit, which is at most 5 GB over the included 5 GB, about $3.75 a month. By the dollars that is Low. Medium is accepted because the number of items per run comes from the partner's response and is not capped in code, and because every duplicate becomes embedding work once progress is recorded. High is not: nothing here can reach about $100 a month."
     },
     {
       "id": "kv-list-auth-fallback",
