@@ -7,7 +7,9 @@
       "service": "D1",
       "file": "src/index.ts",
       "contains": "UPDATE events SET score = score * 0.99",
-      "severity": ["Critical"],
+      "severity": [
+        "Critical"
+      ],
       "autonomous": true,
       "explanation": "The cron runs every minute and updates every row in events with no WHERE or LIMIT. score is indexed, so each row write also writes an index row. events grows with every POST and is never pruned, so rows written grow as rows x 2 x 1,440 per day without any user activity."
     }

@@ -7,6 +7,14 @@
       "service": "Workers AI",
       "file": "src/jobs.ts",
       "contains": "UPDATE articles SET embedded_at = ? WHERE source_id = ?",
+      "also": [
+        {
+          "contains": "export async function embedPending(env: Env): Promise<void> {"
+        },
+        {
+          "contains": "const { data } = await env.AI.run(EMBED_MODEL, { text: results.map("
+        }
+      ],
       "severity": [
         "Medium",
         "High"
@@ -19,6 +27,11 @@
       "service": "D1",
       "file": "src/jobs.ts",
       "contains": "\"INSERT INTO articles (source_id, title, body, fetched_at) VALUES (?, ?, ?, ?)\"",
+      "also": [
+        {
+          "contains": "export async function harvest(env: Env): Promise<void> {"
+        }
+      ],
       "severity": [
         "Medium",
         "High"
@@ -36,6 +49,9 @@
         "High"
       ],
       "autonomous": false,
+      "exposure": [
+        "external"
+      ],
       "explanation": "With LEGACY_KEY_SCAN on, every request with an unknown token lists the whole legacy: prefix before returning 401, one list operation per 1,000 keys, with no rate limit in front. The SEARCH_LIMITER binding is configured but never called."
     }
   ],

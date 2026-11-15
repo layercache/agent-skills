@@ -7,6 +7,14 @@
       "service": "Durable Objects",
       "file": "src/session.ts",
       "contains": "if (now >= checkpointRefreshAt(cp)) {",
+      "also": [
+        {
+          "contains": "await this.ctx.storage.setAlarm(checkpointRefreshAt(cp));"
+        },
+        {
+          "contains": "async alarm(): Promise<void> {"
+        }
+      ],
       "severity": [
         "Critical"
       ],

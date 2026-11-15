@@ -7,7 +7,19 @@
       "service": "Workers AI",
       "file": "src/digest.ts",
       "contains": "const { results: users } = await env.DB.prepare(\"SELECT id, email FROM users\").all<User>();",
-      "severity": ["Critical", "High"],
+      "also": [
+        {
+          "contains": "const summary = (await env.AI.run(\"@cf/meta/llama-3.1-8b-instruct\", {"
+        },
+        {
+          "file": "src/index.ts",
+          "contains": "ctx.waitUntil(buildDigests(env));"
+        }
+      ],
+      "severity": [
+        "Critical",
+        "High"
+      ],
       "autonomous": true,
       "explanation": "The cron runs 288 times a day and, for every user with no LIMIT or batching, reads KV, scans that user's full activity history in D1, runs an AI summary over all of it, writes a new R2 object, inserts a D1 row and enqueues an email. Cost grows with users x history x 288 per day, with no change detection, and Promise.all fans out every user at once."
     }

@@ -7,6 +7,12 @@
       "service": "D1",
       "file": "src/sync.ts",
       "contains": "ON CONFLICT(sku) DO UPDATE SET",
+      "also": [
+        {
+          "file": "src/index.ts",
+          "contains": "ctx.waitUntil(syncCatalogue(env));"
+        }
+      ],
       "severity": [
         "Medium",
         "High"

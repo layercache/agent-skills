@@ -7,6 +7,11 @@
       "service": "Workers AI",
       "file": "src/jobs.ts",
       "contains": "const { data } = await env.AI.run(EMBED_MODEL, { text: results.map((r) => `${r.title}\\n\\n${r.body}`) });",
+      "also": [
+        {
+          "contains": "UPDATE articles SET embedded_at = ? WHERE id = ?"
+        }
+      ],
       "severity": [
         "Medium",
         "High"

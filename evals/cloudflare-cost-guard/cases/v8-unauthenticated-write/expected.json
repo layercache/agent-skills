@@ -7,10 +7,18 @@
       "service": "D1",
       "file": "src/index.ts",
       "contains": "\"INSERT INTO request_log (slug, ip, user_agent, referrer, created_at) VALUES (?, ?, ?, ?, ?)\"",
+      "also": [
+        {
+          "contains": "async fetch(request: Request, env: Env): Promise<Response> {"
+        }
+      ],
       "severity": [
         "Medium"
       ],
       "autonomous": false,
+      "exposure": [
+        "external"
+      ],
       "explanation": "Any request to any path, including unknown slugs, inserts a request_log row and writes a KV key before the 404 check. That is a small fixed number of cheap writes per request, not fan-out, so it is Medium rather than High; it stays a finding because request_log has no cleanup, so the data compounds. The only bound is a Rate Limiting binding keyed by IP, which is per location and avoided by distributed clients. There are no routes, so workers_dev defaults to true and zone WAF or rate-limiting rules would not apply."
     }
   ],
