@@ -16,6 +16,6 @@
   "r2_buckets": [{ "binding": "SNAPSHOTS", "bucket_name": "tutor-snapshots" }],
   "kv_namespaces": [{ "binding": "AUTH", "id": "00000000000000000000000000000000" }],
   "ratelimits": [
-    { "name": "PER_USER", "namespace_id": "1005", "simple": { "limit": 30, "period": 60 } }
+    { "name": "PER_USER", "namespace_id": "1005", "simple": { "limit": 10, "period": 60 } }
   ]
 }

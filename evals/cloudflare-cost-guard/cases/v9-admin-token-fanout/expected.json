@@ -8,13 +8,17 @@
       "file": "src/index.ts",
       "contains": "const { results: rooms } = await env.DB.prepare(\"SELECT name FROM rooms\").all<{ name: string }>();",
       "severity": [
-        "Medium"
+        "High"
       ],
       "autonomous": false,
+      "starts": [
+        "credential"
+      ],
+      "bounded": false,
       "exposure": [
         "credential"
       ],
-      "explanation": "/admin/stats is protected only by one static ADMIN_TOKEN. Each call reads every room from D1 with no LIMIT and wakes every GameRoom Durable Object (a DO request plus duration and SQLite rows read per room), so cost per call grows with the number of rooms. If the token leaks or a dashboard polls it, calls repeat with no rate limit or per-call cap."
+      "explanation": "/admin/stats is protected only by one static ADMIN_TOKEN, and nothing limits how often it can be called. Each call reads every room from D1 with no LIMIT and wakes every GameRoom Durable Object (a DO request plus duration and SQLite rows read per room), so cost per call grows with the number of rooms. A credential is not a limit: one leaked copy of the token, or a dashboard that polls it, sets the volume, so the worst month has no ceiling and the path is rated by what one call does, which is a fan-out. With 1,000 rooms, one call a second is about 2.6 billion object requests a month, about $390 at $0.15 per million. s19 pages and rate-limits the same route."
     }
   ],
   "must_not_flag": []

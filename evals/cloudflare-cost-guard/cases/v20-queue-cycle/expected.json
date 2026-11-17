@@ -20,6 +20,10 @@
         "Critical"
       ],
       "autonomous": true,
+      "starts": [
+        "itself"
+      ],
+      "bounded": false,
       "explanation": "handleIngest() re-parses the stored file and always sends the document to doc-enrich; handleEnrich() sends it back to doc-ingest when the API answers needs_reparse. The message carries no depth or attempt count and the re-send has no delay, and because each hop is a new message, max_retries and the dead letter queues never apply. A document the API can never enrich (the stored file does not change between passes) circles forever: each lap is about six queue operations, an R2 read, a D1 upsert and one metered enrichment API call, with no user involved. Every such document adds another loop."
     }
   ],
@@ -28,6 +32,8 @@
       "file": "src/enrich.ts",
       "contains": "msg.retry({ delaySeconds: 60 });",
       "max_severity": "Low",
+      "service": "Queues",
+      "autonomous": true,
       "reason": "A failed API call uses the platform retry path with a delay, so max_retries of 3 and the dead letter queue apply."
     }
   ]

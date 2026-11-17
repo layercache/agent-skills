@@ -1,14 +1,17 @@
 {
   "kind": "safe",
-  "summary": "The support agent from v6 with at most four model calls per question, capped input and output, an API key and a per-key rate limit.",
+  "summary": "The support agent from v6 with at most four model calls per question, capped input and output, an API key, a per-key rate limit, and a budget of 20 questions per key per day counted in D1 before any model call.",
   "expected_findings": [],
-  "max_overall_severity": "Medium",
+  "max_overall_severity": "Low",
   "must_not_flag": [
     {
       "file": "src/index.ts",
       "contains": "for (let step = 0; step < MAX_STEPS; step++) {",
-      "max_severity": "Medium",
-      "reason": "The loop runs at most four times, each call is capped at 400 output tokens, and the question and every article added to the history are capped, so one request has a fixed maximum cost, about $0.006 at the snapshot's rate for this model. The route needs an API key and is limited to ten requests a minute per key before any model call. That is a rate limit, not a spending budget: one key used flat out is about 432,000 requests a month, roughly $2,800, from each Cloudflare location, since the binding counts per location. Low is right when the keys are read as credentials with each call capped. Medium is accepted for a report that prices that ceiling and asks for a daily budget per key. Nothing here is a loop that runs away, so High or Critical is wrong."
+      "max_severity": "Low",
+      "service": "Workers AI",
+      "autonomous": false,
+      "reason": "The loop runs at most four times, each call is capped at 400 output tokens, and the question and every article added to the history are capped, so one question has a fixed maximum cost: about 9,600 input and 1,600 output tokens across the four calls, about $0.0064 at the snapshot's rates for this model ($0.293 and $2.253 per million). Before the first call, one conditional upsert counts the question against a budget of 20 per key per day; D1 keeps that count in one place, so it holds across locations, unlike the per-location rate limit. One key's worst month is 600 questions, about $3.90 of model calls, about $0.60 over the roughly 300,000 Neurons ($3.30) included a month. That is Low. v27 is the same agent with the rate limit alone.",
+      "monthly_usd": 0.6
     }
   ]
 }

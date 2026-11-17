@@ -19,6 +19,10 @@
         "Critical"
       ],
       "autonomous": true,
+      "starts": [
+        "itself"
+      ],
+      "bounded": false,
       "explanation": "sync() reschedules itself in a finally block every 5 seconds with no stop condition, so once any request reaches an agent it polls forever: each run is an alarm invocation, a metered mail API call, a state write and a sync_log row that is never pruned. Agent schedules run on the Durable Object's alarm, so there is no setAlarm call to search for. routeAgentRequest() names the agent from the URL with no authentication, so every new name adds another agent that polls forever, and onRequest() adds a new delayed schedule on every request, so chains multiply inside one agent too."
     }
   ],

@@ -8,25 +8,53 @@
       "file": "src/jobs.ts",
       "contains": "\"UPDATE articles SET embed_attempts = embed_attempts + 1, embed_gave_up_at = CASE WHEN embed_attempts + 1 >= ? THEN ? END WHERE id = ?\"",
       "max_severity": "Low",
+      "service": [
+        "D1",
+        "Workers AI",
+        "Vectorize"
+      ],
+      "autonomous": true,
       "reason": "Each article's attempt count is saved before Workers AI is called, and after three attempts it leaves the pending set, so an article that keeps failing is paid for at most three times."
     },
     {
       "file": "src/jobs.ts",
       "contains": "env.DB.prepare(\"UPDATE articles SET embedded_at = ?, embed_gave_up_at = NULL WHERE id = ?\").bind(now, r.id),",
       "max_severity": "Low",
+      "service": [
+        "D1",
+        "Workers AI",
+        "Vectorize"
+      ],
+      "autonomous": true,
       "reason": "Progress is written to the rows the job selected, so the pending set drains and each run does only new work."
     },
     {
       "file": "src/jobs.ts",
       "contains": "ON CONFLICT(source_id) DO NOTHING",
       "max_severity": "Low",
+      "service": "D1",
+      "autonomous": true,
       "reason": "source_id is unique, so re-polling the feed adds only new items."
     },
     {
       "file": "src/auth.ts",
       "contains": "const legacy = await env.KEYS.get<Client>(`key:legacy:${await sha256(token)}`, \"json\");",
       "max_severity": "Low",
+      "service": "KV",
+      "autonomous": false,
       "reason": "A legacy key costs one KV read, whatever the number of legacy keys."
+    },
+    {
+      "file": "src/index.ts",
+      "contains": "const { data } = await env.AI.run(EMBED_MODEL, { text: [q] });",
+      "max_severity": "Low",
+      "service": [
+        "Workers AI",
+        "Vectorize"
+      ],
+      "autonomous": false,
+      "reason": "A search needs a client key and is limited to five a minute per key, counted per location. One key from one location is 216,000 searches a month: at most about 200 tokens each, 264,000 Neurons, inside the roughly 300,000 included, and 768 queried Vectorize dimensions each, 166M in all, $1.16 over the included 50M. Low.",
+      "monthly_usd": 1.16
     }
   ]
 }

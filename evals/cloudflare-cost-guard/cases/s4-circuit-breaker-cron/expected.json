@@ -8,6 +8,12 @@
       "file": "src/index.ts",
       "contains": "const res = await fetch(`${env.PRICING_API}/prices`, {",
       "max_severity": "Low",
+      "service": [
+        "Third-party",
+        "Workers",
+        "D1"
+      ],
+      "autonomous": true,
       "reason": "The breaker and disabled flag are read from D1 before any API call, a missing row fails closed, each run makes at most one API call for at most 50 SKUs with a 15 s timeout, and five failures in a row open the breaker for an hour."
     }
   ]

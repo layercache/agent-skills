@@ -20,6 +20,10 @@
         "High"
       ],
       "autonomous": false,
+      "starts": [
+        "account"
+      ],
+      "bounded": false,
       "explanation": "listOrders() filters orders by customer_id and sorts by created_at with no limit. The Drizzle schema gives orders one index, on created_at, so nothing lets the query find one customer's rows: every GET /orders reads every order of every customer, and returns all of the caller's. The table has no retention and each customer adds to it with POST /orders, so rows read per request grow with the whole shop's history. Authentication and the per-customer rate limit slow the growth but do not bound what one request reads. Finding it means reading the index from the schema file, not from SQL."
     }
   ],
@@ -28,7 +32,10 @@
       "file": "apps/api/src/routes/orders.ts",
       "contains": "db.insert(orders).values({ id: orderId, customerId: customer.id, status: \"placed\", totalCents, createdAt: Date.now() }),",
       "max_severity": "Medium",
-      "reason": "Orders are kept forever. That is ordinary for a shop and only matters because of the scan above, so a report may mention it as a smaller finding."
+      "service": "D1",
+      "autonomous": false,
+      "reason": "Orders are kept forever. That is ordinary for a shop, but one signed-in customer is limited only to 60 requests a minute, counted per location: 2.6M orders a month from one location, each up to 20 items, about 44 to 48 rows written with their index entries plus a queue message, about $70 to $80 over the allowance. The database would also reach D1's 10 GB limit within a couple of months, which caps storage at about $3.75 a month and then breaks ordering. That is Medium, not High, and it matters most because of the scan above, so a report may mention it as a smaller finding.",
+      "monthly_usd": 81
     }
   ],
   "must_not_flag": [
@@ -36,24 +43,31 @@
       "file": "apps/api/src/routes/products.ts",
       "contains": ".limit(50);",
       "max_severity": "Low",
+      "service": "D1",
+      "autonomous": false,
       "reason": "The public product list filters on category, sorts by price and stops at 50 rows, all served by the (category, price_cents) index."
     },
     {
       "file": "apps/api/test/load.test.ts",
       "contains": "while (true) {",
       "max_severity": "Low",
+      "service": "any",
       "reason": "A soak test under test/ that targets a local dev server. It never deploys, so it is out of scope."
     },
     {
       "file": "apps/jobs/src/receipts.ts",
       "contains": "msg.retry({ delaySeconds: 30 });",
       "max_severity": "Low",
+      "service": "Queues",
+      "autonomous": true,
       "reason": "The receipt consumer is idempotent and uses the platform retry path with a delay, max_retries of 3 and a dead letter queue."
     },
     {
       "file": "apps/jobs/src/cleanup.ts",
       "contains": "\"DELETE FROM idempotency_keys WHERE key IN (SELECT key FROM idempotency_keys WHERE created_at < ? ORDER BY created_at LIMIT ?)\"",
       "max_severity": "Low",
+      "service": "D1",
+      "autonomous": true,
       "reason": "A daily delete of at most 5,000 expired keys through the created_at index."
     }
   ]

@@ -8,7 +8,18 @@
       "file": "src/index.ts",
       "contains": "msg.retry({ delaySeconds: backoff(msg.attempts) });",
       "max_severity": "Low",
+      "service": "Queues",
+      "autonomous": true,
       "reason": "Retries use the platform retry path, so max_retries = 5 and the dead letter queue apply; delays back off to at most an hour; permanent 4xx failures are acked; D1 ON CONFLICT prevents duplicate deliveries."
+    },
+    {
+      "file": "src/index.ts",
+      "contains": "await env.DELIVERIES.send(delivery);",
+      "max_severity": "Low",
+      "service": "Queues",
+      "autonomous": false,
+      "reason": "The enqueue route needs the relay token, accepts at most 32,000 bytes with an id of at most 64 characters, and is limited to 20 messages a minute under one shared key, counted per location. One leaked token from one location is 864,000 messages a month, each one 64 KB queue unit: about 2.6M operations, $0.64 over the included million, or about 6.9M and $2.36 if every delivery fails and is retried five times. The delivered table keeps one short row per message, about 130 MB a month, and the claims and retries write at most about 21M rows, both inside the allowance. Low.",
+      "monthly_usd": 2.36
     }
   ]
 }

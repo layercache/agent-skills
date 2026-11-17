@@ -144,7 +144,7 @@ Mechanisms summarized from Cloudflare's developer documentation, checked 2026-11
 ## Workers Rate Limiting binding (`ratelimits`)
 
 - **What it is:** a safeguard, not a cost driver. `env.<LIMITER>.limit({ key })` returns `success: false` once a key exceeds `limit` calls per `period` (10 or 60 seconds).
-- **Limits of the safeguard:** counters are per Cloudflare location and eventually consistent; Cloudflare describes it as permissive and not an accounting system, and advises against keying on IP addresses or locations. A limit keyed by IP or applied per location does not cap total volume from a distributed client. Its pricing is not documented on the binding page.
+- **Limits of the safeguard:** Cloudflare documents the limit as approximate, counted separately in each location (the counts "do not combine into one worldwide limit") and eventually consistent within a location, and recommends a Durable Object for a strict limit. It advises against keying on IP addresses or locations and suggests API keys, user IDs or tenant IDs. A limit keyed by IP does not limit a caller who uses many addresses. A limit keyed by account or key sets a worst month for one caller: price what one location allows (SKILL.md, Paths a caller drives). Its pricing is not documented on the binding page.
 - **Code signals:** `ratelimits` in config, `.limit({ key` in code. Check what the key is and that the check runs before the billable work.
 - Docs: [Rate Limiting binding](https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/).
 

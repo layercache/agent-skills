@@ -1,0 +1,40 @@
+{
+  "kind": "vulnerable",
+  "summary": "The s15 pipeline without the clip cap: a signed-in user's uploads are kept forever, and the only limit is ten uploads a minute, counted per location.",
+  "expected_findings": [
+    {
+      "id": "upload-storage-rate-limit-only",
+      "service": "R2",
+      "file": "src/index.ts",
+      "contains": "await env.MEDIA.put(`uploads/${userId}/${name}`, request.body, {",
+      "also": [
+        {
+          "contains": "const { success } = await env.UPLOAD_LIMITER.limit({ key: userId });"
+        }
+      ],
+      "severity": [
+        "High"
+      ],
+      "autonomous": false,
+      "starts": [
+        "account"
+      ],
+      "bounded": true,
+      "explanation": "Every upload is stored under uploads/<user>/ and nothing removes it: there is no total per user, no delete, and scripts/setup.sh sets no lifecycle rule. Each upload is at most 25 MiB, and the only limit is UPLOAD_LIMITER, ten a minute per user, which the Rate Limiting binding counts separately in each location. One account from one location can add 432,000 uploads a month, about 10.5 TiB (11.3 TB), which R2 bills at about $160 to $170 a month at $0.015 per GB-month for as long as it is kept, and each month adds as much again. That is over about $100, so High. This is the s15 upload route without its clip cap. The 1.8.0 version of s15 had no cap and allowed 20 uploads a minute; Opus 5.5 rated it Medium and Fable 5.2 rated it Low.",
+      "monthly_usd": 158
+    }
+  ],
+  "must_not_flag": [
+    {
+      "file": "src/index.ts",
+      "contains": "await env.MEDIA.put(`meta/${key.slice(\"uploads/\".length)}.json`, JSON.stringify(summary), {",
+      "max_severity": "Low",
+      "service": [
+        "R2",
+        "Queues"
+      ],
+      "autonomous": true,
+      "reason": "The rule in scripts/setup.sh covers only keys under uploads/. The sidecar is written under meta/, which the rule does not match, and the consumer returns early for any key outside uploads/, so its own output cannot raise another event. One upload costs one message, one R2 read and one R2 write."
+    }
+  ]
+}

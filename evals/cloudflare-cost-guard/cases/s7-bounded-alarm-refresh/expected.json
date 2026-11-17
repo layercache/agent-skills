@@ -1,6 +1,6 @@
 {
   "kind": "safe",
-  "summary": "The same refresh alarm, refreshing only after new messages, replacing the previous snapshot and never re-arming sooner than a fixed floor. Messages are rate-limited per user, capped per session and deleted with the snapshot when the session expires.",
+  "summary": "The same refresh alarm, refreshing only after new messages, replacing the previous snapshot and never re-arming sooner than a fixed floor. Messages are rate-limited to ten a minute per user, capped per session and deleted with the snapshot when the session expires.",
   "expected_findings": [],
   "max_overall_severity": "Low",
   "must_not_flag": [
@@ -8,13 +8,29 @@
       "file": "src/session.ts",
       "contains": "if (now >= checkpointRefreshAt(cp) && lastSeq > cp.snapshotSeq) {",
       "max_severity": "Low",
+      "service": [
+        "Durable Objects",
+        "R2"
+      ],
+      "autonomous": true,
       "reason": "A refresh runs only when messages arrived since the last snapshot and moves expiresAt forward; an idle session schedules its expiry and stops."
     },
     {
       "file": "src/session.ts",
       "contains": "await this.ctx.storage.setAlarm(Math.max(target, now + MIN_ALARM_DELAY_MS));",
       "max_severity": "Low",
+      "service": "Durable Objects",
+      "autonomous": true,
       "reason": "Every alarm is at least 15 minutes away, so no stored time can make it fire back-to-back."
+    },
+    {
+      "file": "src/index.ts",
+      "contains": "return Response.json(await stub.append(role, content.slice(0, 8000)));",
+      "max_severity": "Low",
+      "service": "Durable Objects",
+      "autonomous": false,
+      "reason": "Messages need a session and are limited to ten a minute per user, counted per location; a user can open any number of sessions, each kept until it expires 30 days after its last refresh. One user from one location sends 432,000 messages a month. Kept for a month at up to 8,000 characters (at most 24 KB) each, that is up to about 13 GB of SQLite storage, about $1.60 over the included 5 GB, plus a snapshot copy in R2 and two or three alarms per session, under $0.20 together. About $1.70 a month, so Low.",
+      "monthly_usd": 1.7
     }
   ]
 }

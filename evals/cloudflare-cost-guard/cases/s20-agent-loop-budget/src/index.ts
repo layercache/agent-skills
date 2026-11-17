@@ -9,6 +9,7 @@ interface Env {
   KB: KVNamespace;
   API_KEYS: KVNamespace;
   KEY_LIMITER: RateLimit;
+  DB: D1Database;
 }
 
 type ChatMessage = { role: "system" | "user" | "assistant" | "tool"; content: string };
@@ -18,6 +19,7 @@ const MAX_STEPS = 4;
 const MAX_QUESTION_CHARS = 1_000;
 const MAX_ARTICLE_CHARS = 4_000;
 const MAX_OUTPUT_TOKENS = 400;
+const DAILY_QUESTIONS = 20;
 
 const SYSTEM_PROMPT =
   "You are a support agent. To look something up, reply with SEARCH: <query>. " +
@@ -42,6 +44,15 @@ export default {
     if (typeof question !== "string" || question.length === 0 || question.length > MAX_QUESTION_CHARS) {
       return new Response("question must be 1 to 1000 characters", { status: 400 });
     }
+    const day = new Date().toISOString().slice(0, 10);
+    const counted = await env.DB.prepare(
+      "INSERT INTO usage (client, day, questions) VALUES (?, ?, 1) " +
+        "ON CONFLICT (client, day) DO UPDATE SET questions = questions + 1 WHERE questions < ? RETURNING questions"
+    )
+      .bind(client, day, DAILY_QUESTIONS)
+      .first<{ questions: number }>();
+    if (!counted) return new Response("daily question limit reached", { status: 429 });
+
     const messages: ChatMessage[] = [
       { role: "system", content: SYSTEM_PROMPT },
       { role: "user", content: question },

@@ -1,6 +1,6 @@
 {
   "kind": "safe",
-  "summary": "Alarm with a 30-second minimum interval, idle shutdown, persisted tick and failure limits.",
+  "summary": "Alarm with a 30-second minimum interval, idle shutdown, persisted tick and failure limits, behind a signed-in route limited to 10 pings a minute per account.",
   "expected_findings": [],
   "max_overall_severity": "Low",
   "must_not_flag": [
@@ -8,7 +8,18 @@
       "file": "src/room.ts",
       "contains": "await this.ctx.storage.setAlarm(Date.now() + MIN_INTERVAL_MS);\n  }",
       "max_severity": "Low",
+      "service": "Durable Objects",
+      "autonomous": true,
       "reason": "The alarm stops when no members are active, after 20 idle ticks or 3 consecutive failures; state is in durable storage, the interval is a fixed 30 s, and room names are validated."
+    },
+    {
+      "file": "src/index.ts",
+      "contains": "const { success } = await env.PER_USER.limit({ key: session.user_id });",
+      "max_severity": "Low",
+      "service": "Durable Objects",
+      "autonomous": false,
+      "reason": "A ping needs a session and is limited to 10 a minute per account, counted per location. Each ping keeps one room's 30 s alarm running for at most about 5.5 minutes, so one account from one location keeps at most about 55 rooms awake, whatever number of rooms it belongs to. That is 432,000 pings and at most 4.75M alarm ticks a month: 5.18M Durable Object requests, $0.63 over the included 1M, and about 16M rows written (three per tick, a few per ping), inside the included 50M. The object accepts no sockets and holds no timers, so it is not billed while idle between ticks. Low; each further location adds as much again.",
+      "monthly_usd": 0.63
     }
   ]
 }

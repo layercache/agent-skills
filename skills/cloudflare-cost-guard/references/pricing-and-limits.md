@@ -39,9 +39,11 @@ Source: [Durable Objects pricing](https://developers.cloudflare.com/durable-obje
 | SQLite storage | 5 GB total | 5 GB-month, then $0.20/GB-month |
 | Legacy KV-backed storage (Paid only) | n/a | reads 1M units then $0.20/M; writes and deletes 1M then $1.00/M; 1 GB then $0.20/GB-month (1 unit = 4 KB) |
 
-Duration by state ([lifecycle](https://developers.cloudflare.com/durable-objects/concepts/durable-object-lifecycle/)): an object that can hibernate does so after 10 seconds idle and is not billed; one that cannot (a socket accepted with `accept()`, a pending timer) stays billed, and is evicted only after 70 to 140 seconds with no events and nothing pending. Each pending timer or I/O call holds it in memory for up to 15 minutes. One object awake for an hour is about 461 GB-s, about $0.006 over the allowance; for a month, about 332,000 GB-s, about $4.
+Duration by state ([lifecycle](https://developers.cloudflare.com/durable-objects/concepts/durable-object-lifecycle/)): an object that can hibernate does so after 10 seconds idle and is not billed while idle, even before it hibernates; one that cannot (a socket accepted with `accept()`, a pending timer) stays billed, and is evicted only after 70 to 140 seconds with no events and nothing pending. Each pending timer or I/O call holds it in memory for up to 15 minutes. One object awake for an hour is about 461 GB-s, about $0.006 over the allowance; for a month, about 332,000 GB-s, about $4.
 
 Alarm retries: exponential backoff from 2 s, up to 6 retries ([alarms](https://developers.cloudflare.com/durable-objects/api/alarms/)). One object has a soft limit of 1,000 requests per second; the number of objects in a namespace is unlimited.
+
+Storage ([limits](https://developers.cloudflare.com/durable-objects/platform/limits/), checked 2026-11-17): one SQLite-backed object holds at most 10 GB, and at that size writes fail with `SQLITE_FULL` while reads and deletes still work. Storage per account is unlimited, so the 10 GB limit bounds data kept in one object, not data spread over objects created as it grows. One string, BLOB or row holds at most 8 MB.
 
 ## D1
 
@@ -53,10 +55,13 @@ Source: [D1 pricing](https://developers.cloudflare.com/d1/platform/pricing/), [D
 | Rows written | 100,000/day | 50M/month, then $1.00/M |
 | Storage | 5 GB total | 5 GB, then $0.75/GB-month |
 | Queries per Worker invocation | 50 | 1,000 |
-| Max database size | 500 MB | 10 GB |
+| Max database size | 500 MB | 10 GB, which cannot be increased |
+| Databases per account | not checked | 1,000,000 (checked 2026-11-17) |
 | Query duration | 30 s | 30 s |
 
 A `db.batch()` call counts as one query against the per-invocation limit, however many statements it holds.
+
+The 10 GB limit stops one database from growing, so storage for a full database is at most 5 GB over the included 5 GB, about $3.75 a month. It does not bound data spread over databases created as it grows, and the 1 TB limit on total storage per account can be raised on request (checked 2026-11-17).
 
 **What counts as a row written** (D1 pricing page and [FAQ](https://developers.cloudflare.com/d1/reference/faq/), checked 2026-11-15):
 
@@ -87,6 +92,8 @@ Source: [Workers pricing, KV section](https://developers.cloudflare.com/workers/
 | Lists | 1,000 | 1M, then $5.00/M |
 | Storage | 1 GB | 1 GB, then $0.50/GB-month |
 
+[KV limits](https://developers.cloudflare.com/kv/platform/limits/) (checked 2026-11-17): no limit on storage per namespace or account on Paid; one write per second to the same key; values up to 25 MiB.
+
 ## R2
 
 Source: [R2 pricing](https://developers.cloudflare.com/r2/pricing/) (page updated 2026-10-30).
@@ -99,12 +106,14 @@ Source: [R2 pricing](https://developers.cloudflare.com/r2/pricing/) (page update
 | Retrieval | free | $0.01/GB |
 | Deletes, egress | free | free |
 
+[R2 limits](https://developers.cloudflare.com/r2/platform/limits/) (checked 2026-11-17): no limit on storage or objects per bucket. Listings are strongly consistent, so a count taken from a listing holds across locations.
+
 ## Queues
 
 Source: [Queues pricing](https://developers.cloudflare.com/queues/platform/pricing/), [batching and retries](https://developers.cloudflare.com/queues/configuration/batching-retries/).
 
 - Free: 10,000 operations/day. Paid: 1M operations/month, then $0.40/M.
-- One operation per 64 KB written, read or deleted; about 3 per delivered message; each retry adds a read.
+- One operation per 64 KB written, read or deleted (1 KB is 1,000 bytes); about 3 per delivered message, 6 for a message over 64,000 bytes; each retry adds a read. A message holds at most 128 KB.
 - Default `max_retries` is 3; the maximum is 100. Delays (`delaySeconds`) up to 24 hours.
 - With `max_concurrency` unset, consumer invocations scale up to the platform maximum of 250. Maximum batch size is 100 messages.
 - A dead letter queue with no consumer keeps messages for 4 days, then deletes them.
@@ -191,7 +200,7 @@ Source: [Hyperdrive pricing](https://developers.cloudflare.com/hyperdrive/platfo
 
 ## Vectorize
 
-Source: [Workers pricing, Vectorize section](https://developers.cloudflare.com/workers/platform/pricing/). Paid: 50M queried dimensions/month then $0.01/M; 10M stored dimensions then $0.05 per 100M. Free: 30M queried dimensions/month and 5M stored dimensions.
+Source: [Workers pricing, Vectorize section](https://developers.cloudflare.com/workers/platform/pricing/). Paid: 50M queried dimensions/month then $0.01/M; 10M stored dimensions then $0.05 per 100M. Free: 30M queried dimensions/month and 5M stored dimensions. The [Vectorize pricing](https://developers.cloudflare.com/vectorize/platform/pricing/) page (checked 2026-11-17) counts queried dimensions as (queried vectors + stored vectors) × dimensions, so one query of a 768-dimension vector adds 768.
 
 ## Email Service
 
@@ -204,7 +213,7 @@ Source: [Email Service pricing](https://developers.cloudflare.com/email-service/
 
 ## Workers Rate Limiting binding
 
-Source: [Rate Limiting binding](https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/). `period` must be 10 or 60 seconds. Counters are per location and eventually consistent. The page does not document pricing.
+Source: [Rate Limiting binding](https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/). `period` must be 10 or 60 seconds. The limit is approximate and applies separately in each Cloudflare location: the counts do not combine into one limit, and they are eventually consistent within a location. For a strict limit the page recommends a Durable Object. The page does not document pricing (checked 2026-11-17).
 
 ## Account-level controls
 

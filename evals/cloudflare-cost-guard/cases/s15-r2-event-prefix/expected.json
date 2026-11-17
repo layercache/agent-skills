@@ -1,6 +1,6 @@
 {
   "kind": "safe",
-  "summary": "The same pipeline with the notification rule limited to the uploads/ prefix, uploads stored under uploads/, and the sidecar written under meta/. Each user may keep at most 100 clips, checked against an R2 listing before the upload, and every upload must state its length.",
+  "summary": "The same pipeline with the notification rule limited to the uploads/ prefix, uploads stored under uploads/, and the sidecar written under meta/. Each user may keep at most 100 clips, checked against an R2 listing before the upload, every upload must state its length, and each user may upload ten times a minute.",
   "expected_findings": [],
   "max_overall_severity": "Low",
   "must_not_flag": [
@@ -8,12 +8,20 @@
       "file": "src/index.ts",
       "contains": "await env.MEDIA.put(key, request.body, {",
       "max_severity": "Low",
-      "reason": "Uploads are kept, but each user can hold at most 100 clips (MAX_CLIPS_PER_USER) of at most 25 MB, and uploads without a Content-Length are refused. R2 listings through a Worker binding are strongly consistent, so the count is not per location; uploads that pass the check at the same moment can overshoot it, by at most what the per-location rate limit lets through at once. One account stores at most about 2.5 GB plus 100 small sidecars, about $0.04 a month at R2's storage rate. Rate the path by what one account unlocks."
+      "service": "R2",
+      "autonomous": false,
+      "reason": "Uploads are kept, but each user can hold at most 100 clips (MAX_CLIPS_PER_USER) of at most 25 MiB, and uploads without a Content-Length are refused. R2 listings are strongly consistent, so the count is not per location; uploads that pass the check at the same moment can overshoot it, by at most what the rate limit lets through at once. One account stores at most about 2.6 GB plus 100 small sidecars, inside R2's 10 GB-month free. Overwriting the same clips is the costly use: ten uploads a minute from one location is 432,000 a month, each a listing, a put and a sidecar put (about 1.3M Class A operations, $1.33 over the free million) and a queue message (about 1.3M operations, $0.12 over). About $1.45 a month, so Low. v28 is the same route without the clip cap.",
+      "monthly_usd": 1.45
     },
     {
       "file": "src/index.ts",
       "contains": "await env.MEDIA.put(`meta/${key.slice(\"uploads/\".length)}.json`, JSON.stringify(summary), {",
       "max_severity": "Low",
+      "service": [
+        "R2",
+        "Queues"
+      ],
+      "autonomous": true,
       "reason": "The rule in scripts/setup.sh covers only keys under uploads/. The sidecar is written under meta/, which the rule does not match, and the consumer returns early for any key outside uploads/, so its own output cannot raise another event. One upload costs one message, one R2 read and one R2 write."
     }
   ]

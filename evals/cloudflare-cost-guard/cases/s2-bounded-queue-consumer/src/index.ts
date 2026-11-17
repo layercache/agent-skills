@@ -18,7 +18,8 @@ interface Env {
 }
 
 const ALLOWED_HOSTS = new Set(["hooks.partner-one.example", "hooks.partner-two.example"]);
-const MAX_PAYLOAD_BYTES = 64_000;
+const MAX_PAYLOAD_BYTES = 32_000;
+const DELIVERY_ID = /^[A-Za-z0-9_-]{8,64}$/;
 
 const BASE_DELAY_SECONDS = 30;
 const MAX_DELAY_SECONDS = 3600;
@@ -40,10 +41,13 @@ export default {
       return new Response("rate limited", { status: 429 });
     }
     const body = await request.text();
-    if (body.length > MAX_PAYLOAD_BYTES) {
+    if (new TextEncoder().encode(body).byteLength > MAX_PAYLOAD_BYTES) {
       return new Response("payload too large", { status: 413 });
     }
     const delivery = JSON.parse(body) as Delivery;
+    if (typeof delivery.id !== "string" || !DELIVERY_ID.test(delivery.id)) {
+      return new Response("invalid delivery id", { status: 400 });
+    }
     if (!ALLOWED_HOSTS.has(new URL(delivery.endpoint).hostname)) {
       return new Response("endpoint not allowed", { status: 400 });
     }
