@@ -115,6 +115,7 @@ A risky case passes when all of these hold:
 - Each reported finding counts for one expected finding only: the nearest, or one of the two when it is equally near both. So one finding cannot stand in for another a few lines away, or cover two by listing both locations.
 - A second finding on the code of an expected one may repeat the problem, but may not rate it above the highest severity the case accepts there. A correct finding does not excuse an overrated one beside it.
 - No other finding is rated Critical. A finding that matches nothing the case expects or allows fails the case when it is rated above `max_unexpected_severity` (High unless the case sets it). Lower-rated extras are counted in the scorecard as noise.
+- A finding near a `may_flag` or `must_not_flag` location is judged against that entry's `max_severity`, unless it sits at least as close to an expected finding, or, for a `must_not_flag` location, to a `may_flag` one. So a finding about an allowed problem may cite a nearby line it counts in its cost without being read as a finding about that line.
 
 A bounded case passes when nothing is rated above its ceiling, anywhere. Every bounded case's ceiling is Low.
 

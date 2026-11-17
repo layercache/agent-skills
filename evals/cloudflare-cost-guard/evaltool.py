@@ -406,15 +406,19 @@ def grade_detail(case_dir: Path, report_text: str) -> dict:
         else:
             claimed.add(i)
 
+    allowed = [a for a in all_anchors if a["role"] == "allow"]
     for anchor in all_anchors:
         if anchor["role"] == "expect":
             continue
         # A finding that sits at least as close to an expected finding belongs to that one,
-        # so an allowed or forbidden location a few lines away does not judge it.
+        # so an allowed or forbidden location a few lines away does not judge it. In the same
+        # way, a finding at least as close to an allowed location is judged there, not by a
+        # forbidden one nearby that it cites as part of the same cost.
+        owners = expected + (allowed if anchor["role"] == "forbid" else [])
         matches = [
             i for i, f in enumerate(findings)
             if (gap := distance(f, anchor, unlined=True)) is not None
-            and not any((d := distance(f, e)) is not None and d <= gap for e in expected)
+            and not any((d := distance(f, e)) is not None and d <= gap for e in owners)
         ]
         over = [findings[i] for i in matches if rank(str(findings[i].get("severity"))) > rank(anchor["max_severity"])]
         if anchor["role"] == "allow":
