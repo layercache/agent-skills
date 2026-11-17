@@ -204,6 +204,8 @@ def check_cases() -> list[str]:
                 errors.append(f"{name}: {what}: a Critical finding cannot be bounded")
             elif "monthly_usd" in item and not item["bounded"]:
                 errors.append(f"{name}: {what}: monthly_usd on a path that is not bounded")
+            if "monthly_usd_assumes" in item and ("monthly_usd" not in item or not isinstance(item["monthly_usd_assumes"], str)):
+                errors.append(f"{name}: {what}: monthly_usd_assumes must say, as text, what the case's monthly_usd assumes")
         for key in ("may_flag", "must_not_flag"):
             for item in case.get(key, []):
                 for field in ("file", "contains", "max_severity", "reason"):
@@ -417,7 +419,9 @@ def field_problems(finding: dict, anchor: dict) -> list[str]:
         if "bounded" in anchor and finding.get("bounded") is not anchor["bounded"]:
             problems.append(f"bounded {finding.get('bounded')!r}, expected {anchor['bounded']}")
         usd = anchor.get("monthly_usd")
-        if usd is not None:
+        # A figure that rests on a size the repository does not show (a supplier catalogue, a
+        # table's row count) depends on what each report assumes, so it is not compared.
+        if usd is not None and not anchor.get("monthly_usd_assumes"):
             got = finding.get("monthly_usd")
             low, high = usd / MONTHLY_USD_FACTOR, usd * MONTHLY_USD_FACTOR
             if not is_dollars(got) or not low <= got <= high:
@@ -850,7 +854,7 @@ def self_test() -> list[str]:
                     errors.append(f"{name}: {f['title']} with starts {wrong_starts[0]!r} passed")
                 if passes(others + [{**f, "bounded": not f["bounded"], "monthly_usd": None}]):
                     errors.append(f"{name}: {f['title']} with the wrong bounded passed")
-                if f["monthly_usd"] is not None:
+                if f["monthly_usd"] is not None and not expected[i].get("monthly_usd_assumes"):
                     if passes(others + [{**f, "monthly_usd": None}]) or passes(others + [{**f, "monthly_usd": f["monthly_usd"] * 10}]):
                         errors.append(f"{name}: {f['title']} with a missing or tenfold monthly_usd passed")
                     if not passes(others + [{**f, "monthly_usd": round(f["monthly_usd"] * 1.1, 2)}]):
