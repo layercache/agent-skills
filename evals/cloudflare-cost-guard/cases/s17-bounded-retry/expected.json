@@ -1,6 +1,6 @@
 {
   "kind": "safe",
-  "summary": "The geocoding lookup from v4 with at most three attempts, backoff, no retry on a 4xx, a timeout, an API key and a per-key rate limit.",
+  "summary": "The geocoding lookup from v4 with at most three attempts, backoff, no retry on a 4xx, a timeout, an API key, a per-key rate limit, and a quota of 1,000 lookups per key per day counted in D1 before any geocoder call.",
   "expected_findings": [],
   "max_overall_severity": "Low",
   "must_not_flag": [
@@ -8,7 +8,7 @@
       "file": "src/geocode.ts",
       "contains": "for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {",
       "max_severity": "Low",
-      "reason": "A fixed maximum of three attempts with exponential backoff and a 5-second timeout each; a 4xx other than 429 stops at once. The route needs an API key and is limited per key before any geocoder call, so one request makes at most three metered calls."
+      "reason": "A fixed maximum of three attempts with exponential backoff and a 5-second timeout each; a 4xx other than 429 stops at once. The route needs an API key and is rate limited per key before any geocoder call, and a conditional upsert in D1 counts each lookup against 1,000 per key per day, in one place, so it holds across locations. One key can cause at most 30,000 lookups a month, 90,000 geocoder calls if every lookup is retried. The geocoder's rate is not visible, and a quota, unlike a rate limit alone, bounds those calls; the Cloudflare costs (a few million rows read and written in D1) stay inside the allowance. Low."
     }
   ]
 }

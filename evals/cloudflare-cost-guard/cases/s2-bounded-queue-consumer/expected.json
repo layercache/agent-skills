@@ -9,6 +9,13 @@
       "contains": "msg.retry({ delaySeconds: backoff(msg.attempts) });",
       "max_severity": "Low",
       "reason": "Retries use the platform retry path, so max_retries = 5 and the dead letter queue apply; delays back off to at most an hour; permanent 4xx failures are acked; D1 ON CONFLICT prevents duplicate deliveries."
+    },
+    {
+      "file": "src/index.ts",
+      "contains": "await env.DELIVERIES.send(delivery);",
+      "max_severity": "Low",
+      "reason": "The enqueue route needs the relay token and is limited to 20 messages a minute under one shared key, counted per location. One leaked token from one location is 864,000 messages a month; a 64,000-character body makes a message just over 64,000 bytes, so about six queue operations each, 5.2M in all, $1.67 over the included million. Delivery claims add about 1.7M rows written in D1, inside the allowance. Low.",
+      "monthly_usd": 1.67
     }
   ]
 }

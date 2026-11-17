@@ -28,7 +28,8 @@
       "file": "apps/api/src/routes/orders.ts",
       "contains": "db.insert(orders).values({ id: orderId, customerId: customer.id, status: \"placed\", totalCents, createdAt: Date.now() }),",
       "max_severity": "Medium",
-      "reason": "Orders are kept forever. That is ordinary for a shop and only matters because of the scan above, so a report may mention it as a smaller finding."
+      "reason": "Orders are kept forever. That is ordinary for a shop, but one signed-in customer is limited only to 60 requests a minute, counted per location: 2.6M orders a month from one location, each up to 20 items, about 44 to 48 rows written with their index entries plus a queue message, about $70 to $80 over the allowance. The database would also reach D1's 10 GB limit within a couple of months, which caps storage at about $3.75 a month and then breaks ordering. That is Medium, not High, and it matters most because of the scan above, so a report may mention it as a smaller finding.",
+      "monthly_usd": 81
     }
   ],
   "must_not_flag": [

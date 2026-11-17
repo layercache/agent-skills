@@ -1,6 +1,6 @@
 {
   "kind": "safe",
-  "summary": "Authenticated, rate-limited import capped at 500 rows, written in batches of 100.",
+  "summary": "Authenticated import capped at 500 rows, written in batches of 100, and limited to one import a minute.",
   "expected_findings": [],
   "max_overall_severity": "Low",
   "must_not_flag": [
@@ -8,7 +8,8 @@
       "file": "src/index.ts",
       "contains": "await env.DB.batch(chunk.map((row) => insert.bind(row.userId, row.kind, now)));",
       "max_severity": "Low",
-      "reason": "Auth and the rate limiter run before any D1 work, the row count is capped at 500 before writing, and the loop is bounded by that cap."
+      "reason": "Auth and the rate limiter run before any D1 work, the row count is capped at 500 before writing, and the loop is bounded by that cap. The limiter allows one import a minute under one shared key, counted per location, so one leaked token from one location is 43,200 imports a month: 21.6M rows, 43.2M rows written with the one index, inside the 50M included. The events table keeps every row and the strings in a row are not length-checked, so a leaked token could fill the database, but D1 cannot grow past 10 GB, which bounds the storage bill at 5 GB over the included 5 GB, about $3.75 a month; after that inserts fail. Low.",
+      "monthly_usd": 3.75
     }
   ]
 }

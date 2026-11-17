@@ -20,7 +20,7 @@ The fixtures are static source code. Nothing here deploys or calls Cloudflare, a
 | `v6-ai-agent-loop` | Risky | Workers AI agent loop with no iteration or token budget | High |
 | `v7-background-fanout` | Risky | Every-5-minute cron doing KV, D1, AI, R2 and Queue work for every user | Critical |
 | `v8-unauthenticated-write` | Risky | Every public request writes one D1 row and one KV key with no retention, bounded only by a per-IP limit, on `workers.dev` by default | Medium |
-| `v9-admin-token-fanout` | Risky | One static admin token gates a route that wakes every Durable Object | Medium |
+| `v9-admin-token-fanout` | Risky | One static admin token, with no rate limit, gates a route that wakes every Durable Object | High |
 | `v10-queue-history-scan` | Risky | Per-account queue that caps waiting rows but scans its uncapped history on every request and alarm | High |
 | `v11-cron-no-progress` | Risky | Cron embedding job that marks progress on the wrong column, a harvest that re-inserts the feed, and a KV list auth fallback | Medium; Low or Medium; Medium or High |
 | `v12-alarm-refresh-window` | Risky | Durable Object refresh alarm that re-arms at a stored time it never moves forward | Critical |
@@ -38,13 +38,15 @@ The fixtures are static source code. Nothing here deploys or calls Cloudflare, a
 | `v24-image-resize-open` | Risky | Public image route that passes width, height and blur from the query string into a transformation | High |
 | `v25-magic-link-email` | Risky | Public sign-in route that emails any address the caller gives, limited only per IP | High |
 | `v26-monorepo-order-history` | Risky | Two Workers, a Drizzle schema, a service binding and a test file; one route reads the whole orders table per request | High |
+| `v27-agent-rate-limit-only` | Risky | `s20` without its daily budget: each question is capped, but a key is limited only to ten questions a minute per location, about $2,770 a month | High |
+| `v28-upload-rate-limit-only` | Risky | `s15` without its clip cap: a signed-in user's uploads are kept forever, limited only to ten a minute per location, about $160 a month of storage added every month | High |
 | `s1-bounded-alarm` | Bounded | Alarm with minimum interval, idle shutdown and persisted limits; D1 lookups by primary key | Nothing above Low |
-| `s2-bounded-queue-consumer` | Bounded | Consumer with `max_retries`, dead letter queue, backoff and idempotency | Nothing above Low |
-| `s3-bounded-d1-batch` | Bounded | Authenticated, rate-limited import capped at 500 rows | Nothing above Low |
+| `s2-bounded-queue-consumer` | Bounded | Consumer with `max_retries`, dead letter queue, backoff and idempotency; a leaked relay token is worth about $1.70 a month | Nothing above Low |
+| `s3-bounded-d1-batch` | Bounded | Authenticated import capped at 500 rows and one call a minute; D1's 10 GB limit caps what a leaked token can store | Nothing above Low |
 | `s4-circuit-breaker-cron` | Bounded | Cron behind a D1-backed circuit breaker and kill switch | Nothing above Low |
 | `s5-bounded-queue-history` | Bounded | `v10` with indexes that match each hot query and per-user history and device caps | Nothing above Low |
-| `s6-cron-with-progress` | Bounded | `v11` with a unique `source_id`, an index on the pending query, progress marked by primary key, an attempt limit saved before each embedding call, and a direct legacy key lookup | Nothing above Low |
-| `s7-bounded-alarm-refresh` | Bounded | `v12` refreshing only after new messages, with a 15-minute alarm floor, a per-user rate limit, a message cap and cleanup at expiry | Nothing above Low |
+| `s6-cron-with-progress` | Bounded | `v11` with a unique `source_id`, an index on the pending query, progress marked by primary key, an attempt limit saved before each embedding call, a direct legacy key lookup, and five searches a minute per key | Nothing above Low |
+| `s7-bounded-alarm-refresh` | Bounded | `v12` refreshing only after new messages, with a 15-minute alarm floor, a rate limit of ten messages a minute per user, a message cap and cleanup at expiry | Nothing above Low |
 | `s8-cron-resync-changed-only` | Bounded | `v13` fetching only products changed since a saved (updated_at, sku) cursor, capped at 20 pages a run, with an upsert that skips unchanged rows | Nothing above Low |
 | `s9-singleton-scheduler` | Bounded | One named Durable Object whose alarm reschedules every minute forever, with capped work per tick | Nothing above Low |
 | `s10-route-self-fetch` | Bounded | Worker on a plain zone route that fetches its own URLs with fan-out; on a route those calls go to the origin and do not re-enter | Nothing above Low |
@@ -52,12 +54,12 @@ The fixtures are static source code. Nothing here deploys or calls Cloudflare, a
 | `s12-workflow-paged-export` | Bounded | `v18` as one instance that pages in a capped loop, once per account per day | Nothing above Low |
 | `s13-browser-closed` | Bounded | `v19` every six hours with one browser, closed in `finally` | Nothing above Low |
 | `s14-websocket-hibernation` | Bounded | `v21` behind a session check, with the Hibernation API and no timers | Nothing above Low |
-| `s15-r2-event-prefix` | Bounded | `v23` with the rule limited to `uploads/`, the sidecar written under `meta/`, and at most 100 clips per user | Nothing above Low |
+| `s15-r2-event-prefix` | Bounded | `v23` with the rule limited to `uploads/`, the sidecar written under `meta/`, at most 100 clips per user and ten uploads a minute | Nothing above Low |
 | `s16-image-presets` | Bounded | `v24` with three fixed presets | Nothing above Low |
-| `s17-bounded-retry` | Bounded | `v4` with three attempts, backoff, an API key and a per-key limit | Nothing above Low |
+| `s17-bounded-retry` | Bounded | `v4` with three attempts, backoff, an API key, a per-key rate limit and a daily lookup quota per key | Nothing above Low |
 | `s18-public-write-retention` | Bounded | `v8` writing one row per visit to a known link, with 30-day retention and `workers.dev` off | Nothing above Low |
-| `s19-admin-paged-stats` | Bounded | `v9` paged at 50 rooms per call and rate limited | Nothing above Low |
-| `s20-agent-loop-budget` | Bounded | `v6` with four model calls at most, capped tokens, an API key and a per-key limit | Nothing above Medium |
+| `s19-admin-paged-stats` | Bounded | `v9` paged at 50 rooms per call and rate limited: a leaked token is worth about $1.80 a month | Nothing above Low |
+| `s20-agent-loop-budget` | Bounded | `v6` with four model calls at most, capped tokens, an API key, a per-key rate limit and a budget of 20 questions per key per day | Nothing above Low |
 
 Each case folder holds the project plus `expected.json`, which names the expected finding (or the code that must not be flagged), the allowed severities, and an explanation of the execution path. Locations are given as a code snippet rather than a line number, so editing a fixture does not silently break the expectations.
 
@@ -114,7 +116,7 @@ A risky case passes when all of these hold:
 - A second finding on the code of an expected one may repeat the problem, but may not rate it above the highest severity the case accepts there. A correct finding does not excuse an overrated one beside it.
 - No other finding is rated Critical. A finding that matches nothing the case expects or allows fails the case when it is rated above `max_unexpected_severity` (High unless the case sets it). Lower-rated extras are counted in the scorecard as noise.
 
-A bounded case passes when nothing is rated above its ceiling, anywhere. The ceiling is Low, except for `s20`: its per-key rate limit is not a spending budget, so a report may rate that Medium.
+A bounded case passes when nothing is rated above its ceiling, anywhere. Every bounded case's ceiling is Low.
 
 In every case, the summary must agree with the findings: `overall_risk` is the highest severity reported ("None" with no findings), and `autonomous_runaway_paths` is true exactly when a finding is autonomous and rated High or Critical.
 
@@ -125,7 +127,7 @@ In every case, the summary must agree with the findings: `overall_risk` is the h
 3. Add `expected.json` following an existing case:
    - `expected_findings`: each needs `contains`, a snippet that occurs once in `file`, and may list `also`, other snippets on the same path (the handler, the scheduling call, the query the loop runs) that a correct report might cite instead. List only lines that belong to this problem, or a different finding could be credited for it. `exposure` is optional; set it only when one value is clearly right.
    - `may_flag`: a real, smaller problem in the fixture that a report may mention but does not have to, with the highest severity it may be given.
-   - `monthly_usd`: for a repeating path at a fixed rate (an expected finding, or a `may_flag` or `must_not_flag` entry), what it bills a month over the included allowance, in dollars, with the arithmetic in the explanation. `evaltool.py check` fails when the accepted ratings are not the ones that figure gives: under about $5 is Low, about $100 or more is High.
+   - `monthly_usd`: for a repeating path at a fixed rate, or for a path a caller drives behind a limit on that caller (its worst month for one account or leaked credential, at one location), what it bills a month over the included allowance, in dollars, with the arithmetic in the explanation. It can go on an expected finding or a `may_flag` or `must_not_flag` entry. `evaltool.py check` fails when the accepted ratings are not the ones that figure gives: under about $5 is Low, about $100 or more is High.
    - `must_not_flag`: code that must not be rated above `max_severity`. Bounded cases also need `max_overall_severity`.
 4. Add the case to the table above; `evaltool.py check` fails if it is missing.
 5. Run `python3 evaltool.py check` and `python3 evaltool.py self-test`.

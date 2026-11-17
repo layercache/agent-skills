@@ -19,6 +19,6 @@
   },
   "kv_namespaces": [{ "binding": "SESSIONS", "id": "00000000000000000000000000000000" }],
   "ratelimits": [
-    { "name": "UPLOAD_LIMITER", "namespace_id": "3201", "simple": { "limit": 20, "period": 60 } }
+    { "name": "UPLOAD_LIMITER", "namespace_id": "3201", "simple": { "limit": 10, "period": 60 } }
   ]
 }

@@ -1,0 +1,27 @@
+{
+  "kind": "vulnerable",
+  "summary": "The bounded support agent from s20 without its daily budget: four model calls at most per question, but the only limit on a key is a rate limit of ten questions a minute, counted per location.",
+  "expected_findings": [
+    {
+      "id": "agent-key-rate-limit-only",
+      "service": "Workers AI",
+      "file": "src/index.ts",
+      "contains": "const result = (await env.AI.run(MODEL, { messages, max_tokens: MAX_OUTPUT_TOKENS })) as { response: string };",
+      "also": [
+        {
+          "contains": "const { success } = await env.KEY_LIMITER.limit({ key: client });"
+        },
+        {
+          "contains": "for (let step = 0; step < MAX_STEPS; step++) {"
+        }
+      ],
+      "severity": [
+        "High"
+      ],
+      "autonomous": false,
+      "explanation": "Each question costs at most four calls to llama-3.3-70b-instruct-fp8-fast with capped output and history: about 9,600 input and 1,600 output tokens, about $0.0064 at $0.293 and $2.253 per million. Nothing limits a key's spending: KEY_LIMITER allows ten questions a minute per key, and the Rate Limiting binding counts separately in each Cloudflare location. One key, leaked or used flat out from one location, is 432,000 questions a month, about $2,770 over the included Neurons, and each further location adds as much again. That is far above about $100 a month, so High, even though each request is capped. A daily or monthly budget per key, counted in one place before the first model call, removes it (s20).",
+      "monthly_usd": 2770
+    }
+  ],
+  "must_not_flag": []
+}

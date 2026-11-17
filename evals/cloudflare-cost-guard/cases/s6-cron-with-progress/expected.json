@@ -27,6 +27,13 @@
       "contains": "const legacy = await env.KEYS.get<Client>(`key:legacy:${await sha256(token)}`, \"json\");",
       "max_severity": "Low",
       "reason": "A legacy key costs one KV read, whatever the number of legacy keys."
+    },
+    {
+      "file": "src/index.ts",
+      "contains": "const { data } = await env.AI.run(EMBED_MODEL, { text: [q] });",
+      "max_severity": "Low",
+      "reason": "A search needs a client key and is limited to five a minute per key, counted per location. One key from one location is 216,000 searches a month: at most about 200 tokens each, 264,000 Neurons, inside the roughly 300,000 included, and 768 queried Vectorize dimensions each, 166M in all, $1.16 over the included 50M. Low.",
+      "monthly_usd": 1.16
     }
   ]
 }

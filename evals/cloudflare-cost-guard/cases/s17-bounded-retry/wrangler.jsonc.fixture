@@ -12,6 +12,9 @@
   "preview_urls": false,
   "routes": [{ "pattern": "geo.parcelpath.example", "custom_domain": true }],
   "kv_namespaces": [{ "binding": "API_KEYS", "id": "00000000000000000000000000000000" }],
+  "d1_databases": [
+    { "binding": "DB", "database_name": "address-lookup", "database_id": "00000000-0000-0000-0000-000000000000" }
+  ],
   "ratelimits": [
     { "name": "KEY_LIMITER", "namespace_id": "3401", "simple": { "limit": 60, "period": 60 } }
   ]

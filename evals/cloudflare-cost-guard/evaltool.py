@@ -103,7 +103,7 @@ def anchors(case_dir: Path, case: dict) -> list[dict]:
 
 
 def fixed_rate_severity(monthly_usd: float) -> str:
-    """The rating of a repeating path at a fixed rate, from what it bills a month over the allowance.
+    """The rating of a repeating path at a fixed rate, or of a caller's worst month, from what it bills a month over the allowance.
 
     The thresholds are the ones in SKILL.md: under about $5 is Low, about $100 or more is High.
     """
@@ -177,8 +177,9 @@ def check_cases() -> list[str]:
                 for extra in item.get("also", []):
                     if not isinstance(extra, dict) or "contains" not in extra:
                         errors.append(f"{name}: every 'also' entry needs 'contains'")
-                # A repeating path at a fixed rate is rated by its dollars a month. Where a case
-                # states that figure, the ratings it accepts must be the ones the figure gives.
+                # A repeating path at a fixed rate, and a path a caller drives behind a limit on that
+                # caller, are rated by their dollars a month. Where a case states that figure, the
+                # ratings it accepts must be the ones the figure gives.
                 if "monthly_usd" not in item:
                     continue
                 usd, what = item["monthly_usd"], item.get("id") or str(item.get("contains"))[:40]

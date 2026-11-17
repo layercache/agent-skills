@@ -9,8 +9,11 @@ import { geocode } from "./geocode";
 interface Env {
   API_KEYS: KVNamespace;
   KEY_LIMITER: RateLimit;
+  DB: D1Database;
   GEOCODER_KEY: string;
 }
+
+const DAILY_LOOKUPS = 1_000;
 
 async function clientFor(request: Request, env: Env): Promise<string | null> {
   const key = request.headers.get("x-api-key");
@@ -31,6 +34,15 @@ export default {
     if (!address) {
       return new Response("missing address", { status: 400 });
     }
+    const day = new Date().toISOString().slice(0, 10);
+    const counted = await env.DB.prepare(
+      "INSERT INTO lookups (client, day, used) VALUES (?, ?, 1) " +
+        "ON CONFLICT (client, day) DO UPDATE SET used = used + 1 WHERE used < ? RETURNING used"
+    )
+      .bind(client, day, DAILY_LOOKUPS)
+      .first<{ used: number }>();
+    if (!counted) return new Response("daily lookup limit reached", { status: 429 });
+
     const coords = await geocode(address, env.GEOCODER_KEY);
     if (!coords) return new Response("lookup failed", { status: 502 });
     return Response.json(coords);

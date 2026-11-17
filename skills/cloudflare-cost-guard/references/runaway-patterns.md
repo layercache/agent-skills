@@ -103,7 +103,7 @@ A search hit is only a lead. Confirm every pattern by tracing the path (SKILL.md
 
 - **Leads:** `\.put\(` (KV, R2, DO storage) or `INSERT`/`UPDATE` in middleware or the main `fetch` path; analytics counters; "last seen" timestamps; middleware that also runs for static files because the config sets `assets.run_worker_first`; `tail\(` handlers (`tail_consumers`), which run once for every invocation of the Worker they observe.
 - **Real when:** every request (including bots and static-looking routes) causes a write, and writes are the expensive operation for that product (KV writes, D1 rows written). Static asset requests are free only while they skip the Worker: with `run_worker_first`, every image, script and stylesheet a page loads is a billed request that runs the middleware.
-- **Starting severity:** rate by amplification (see the calibration rules in SKILL.md). Medium when anyone can cause a few cheap writes per request and the data has no retention or a scheduled job scans it. Low when it is about one cheap write per request with retention in place, or the route is authenticated with a per-user cap; mention that under global safeguards rather than as a finding. High only when one request writes many rows or objects, or the path also calls an expensive service (then it is usually P8 or P12 as well).
+- **Starting severity:** rate by amplification (see the calibration rules in SKILL.md). Medium when anyone can cause a few cheap writes per request and the data has no retention or a scheduled job scans it. Low when it is about one cheap write per request with retention in place, or when a limit keyed by the account or key keeps one caller's worst month under about $5; mention that under global safeguards rather than as a finding. A signed-in route behind such a limit is rated by that worst month, not by amplification. High only when one request writes many rows or objects, or the path also calls an expensive service (then it is usually P8 or P12 as well).
 
 ## P11 Workflow re-creation and unlimited step retries
 
@@ -153,8 +153,8 @@ A search hit is only a lead. Confirm every pattern by tracing the path (SKILL.md
 
 - **Leads:** admin, debug, metrics or maintenance routes (`/admin`, `/dev`, `/internal`, `/metrics`, `/backfill`) checked with a single static secret (`env.ADMIN_TOKEN`, a shared header), especially routes that loop over Durable Objects, rows or objects.
 - **Real when:** the route does bulk work per call (touches many objects, re-processes data, calls AI) with no per-call cap, so a leaked or misused token makes each call expensive and repeatable.
-- **False positives:** per-call caps independent of auth, per-user credentials with their own limits, routes not deployed to production.
-- **Starting severity:** Medium; High if the route is also on a hostname without other protection and the per-call work is large.
+- **False positives:** a per-call cap independent of auth together with a limit on the credential whose worst month is small, routes not deployed to production.
+- **Starting severity:** High when nothing limits how often the credential can call the route, since one leaked copy then sets the volume. Behind a rate limit or quota keyed by the credential, rate one leaked copy's worst month at that limit (SKILL.md, Paths a caller drives).
 
 ## P19 Hot query over data that grows outside a cap
 
