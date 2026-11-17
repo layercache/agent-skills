@@ -8,12 +8,16 @@
       "file": "src/sync.ts",
       "contains": "ON CONFLICT(sku) DO UPDATE SET",
       "max_severity": "Low",
+      "service": "D1",
+      "autonomous": true,
       "reason": "The upsert's WHERE skips rows whose values are unchanged, and the run only receives products the supplier changed since the saved cursor; an unchanged catalogue costs one indexed read per minute."
     },
     {
       "file": "src/sync.ts",
       "contains": "await saveCursor.bind(CURSOR_NAME, cursor).run();",
       "max_severity": "Low",
+      "service": "D1",
+      "autonomous": true,
       "reason": "The cursor is saved after each page is written, under the same name the next run reads, and it pairs updated_at with the SKU so products that share a timestamp are not fetched again. Each run starts where the last one ended, reads at most 20 pages with a fetch timeout, and a failed run keeps the pages it finished."
     }
   ]

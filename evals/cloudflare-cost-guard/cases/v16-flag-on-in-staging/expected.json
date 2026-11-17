@@ -13,6 +13,10 @@
         "High"
       ],
       "autonomous": false,
+      "starts": [
+        "anyone"
+      ],
+      "bounded": false,
       "exposure": [
         "external"
       ],
@@ -24,6 +28,12 @@
       "file": "src/jobs.ts",
       "contains": "\"UPDATE articles SET embed_attempts = embed_attempts + 1, embed_gave_up_at = CASE WHEN embed_attempts + 1 >= ? THEN ? END WHERE id = ?\"",
       "max_severity": "Low",
+      "service": [
+        "D1",
+        "Workers AI",
+        "Vectorize"
+      ],
+      "autonomous": true,
       "reason": "The pipeline is the bounded one from s6: an attempt limit is saved before each paid embedding call, progress is marked by primary key, and source_id is unique."
     }
   ]

@@ -17,6 +17,10 @@
         "High"
       ],
       "autonomous": false,
+      "starts": [
+        "anyone"
+      ],
+      "bounded": false,
       "exposure": [
         "external"
       ],

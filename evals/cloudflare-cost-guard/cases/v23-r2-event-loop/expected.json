@@ -23,6 +23,10 @@
         "Critical"
       ],
       "autonomous": true,
+      "starts": [
+        "itself"
+      ],
+      "bounded": false,
       "explanation": "scripts/setup.sh creates an object-create rule on clipshare-media with no --prefix or --suffix, so every new object in the bucket sends a message to media-events. The consumer answers each message by writing a sidecar into the same bucket, at meta/<SHA-256 of the key>.json. The sidecar is a new object and raises the same event, and the consumer does not skip keys under meta/, so the next message writes a sidecar for the sidecar, and so on. Every sidecar key is 74 bytes long, so R2's 1,024-byte limit on key length never stops the chain (a key that grew on each pass would stop there after about a hundred objects). One upload starts a chain that never ends, each link costing about three queue operations, an R2 read, an R2 write and a stored object, with no user involved. The rule lives outside the Wrangler config, in the setup script."
     }
   ],
@@ -32,6 +36,8 @@
       "file": "src/index.ts",
       "contains": "await env.MEDIA.put(`${userId}/${name}`, request.body, {",
       "max_severity": "High",
+      "service": "R2",
+      "autonomous": false,
       "reason": "Separate from the loop: uploads are kept forever with no total per user, and the only limit is 20 uploads a minute per user, counted per location. The size check defaults a missing Content-Length to 0, so 25 MiB is not even a ceiling. At 25 MiB, one account from one location adds 864,000 uploads, about 21 TiB a month, about $316 a month of R2 storage that recurs and grows, so a report may rate it High (v28).",
       "monthly_usd": 316
     }

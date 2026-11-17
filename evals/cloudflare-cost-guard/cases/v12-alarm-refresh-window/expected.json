@@ -19,6 +19,10 @@
         "Critical"
       ],
       "autonomous": true,
+      "starts": [
+        "itself"
+      ],
+      "bounded": false,
       "explanation": "The alarm is set for expiresAt minus 7 days. runAlarm() writes a full snapshot to R2 and updates refreshedAt but never moves expiresAt, so after the window opens on day 23 scheduleRefresh() sets the alarm to a time already in the past and it fires again at once, reading every message and writing an R2 object each run, until expiry on day 30. It is dormant until then and runs with no user activity, once per session object."
     }
   ],

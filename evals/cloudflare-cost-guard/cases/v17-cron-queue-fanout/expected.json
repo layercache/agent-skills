@@ -16,6 +16,10 @@
         "Medium"
       ],
       "autonomous": true,
+      "starts": [
+        "itself"
+      ],
+      "bounded": true,
       "explanation": "25 targets x 8 regions x 3 kinds is 600 messages per run, every minute. At about three queue operations per message that is 600 x 3 x 43,200 = about 77.8M operations a month against 1M included, about $31 a month at $0.40 per million, every month, with no users. The work per run is fixed and nothing grows, so it is a repeating path at a fixed rate: above about $5 and below about $100 a month is Medium. It is 78 times the allowance, which the old multiple-of-allowance rule would have called High. The consumer is bounded: it reads one row by primary key per probe and writes only when a target changes state.",
       "monthly_usd": 30.7
     }
@@ -25,6 +29,11 @@
       "file": "src/index.ts",
       "contains": "\"UPDATE target_state SET up = ?, changed_at = ? WHERE target = ? AND region = ? AND kind = ?\"",
       "max_severity": "Low",
+      "service": [
+        "D1",
+        "Queues"
+      ],
+      "autonomous": true,
       "reason": "The consumer writes only when a target's state changes, by primary key, and the table holds one row per target, region and kind."
     }
   ]

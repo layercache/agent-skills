@@ -107,11 +107,11 @@ Any fix for these findings changes exactly the code paths that can generate cost
 
 ## Machine-readable summary
 
-<!-- "file"/"line" is the main location; "locations" lists every location on the path. Every "line" is a real line number, never 0: for a config-only finding, the line of the relevant key. "autonomous" is true when the path keeps running with no further outside input. "exposure" is "n/a" only for a missing global safeguard filed on its own. "autonomous_runaway_paths" is true only if some finding is autonomous and rated High or Critical. "severity" is as deployed (the setting the repository config shows); "gated_by" is "<setting>=<value in the repository>", for example "AGENT_ENABLED=false" or "SYNC_ENABLED=not visible (secret)" (null when always live) and "severity_if_enabled" is the severity when that setting flips (null when not gated). "actions" mirrors the "Prioritized remediation" table: "fixes" is a list of finding IDs or "Global"; "when" is one of "Now", "Before launch", "Before enabling <X>", "Later". Omit "changes_since" entirely unless the user provided a previous report; then "new" and "fixed" list finding titles, "rerated" lists {"title", "from", "to", "reason"}, and "unchanged" counts findings present in both runs at the same severity. Service names: Workers, Pages Functions, Durable Objects, D1, KV, R2, Queues, Workflows, Cron Triggers, Workers AI, AI Gateway, Browser Run, Containers, Hyperdrive, Vectorize, Email Service, Workers Logs, or "Third-party: <provider>". Safeguards such as the Rate Limiting binding are not services. -->
+<!-- "file"/"line" is the main location; "locations" lists every location on the path. Every "line" is a real line number, never 0: for a config-only finding, the line of the relevant key. "autonomous" is true when the path keeps running with no further outside input. "exposure" is "n/a" only for a missing global safeguard filed on its own. "autonomous_runaway_paths" is true only if some finding is autonomous and rated High or Critical. "severity" is as deployed (the setting the repository config shows); "gated_by" is "<setting>=<value in the repository>", for example "AGENT_ENABLED=false" or "SYNC_ENABLED=not visible (secret)" (null when always live) and "severity_if_enabled" is the severity when that setting flips (null when not gated). "actions" mirrors the "Prioritized remediation" table: "fixes" is a list of finding IDs or "Global"; "when" is one of "Now", "Before launch", "Before enabling <X>", "Later". Omit "changes_since" entirely unless the user provided a previous report; then "new" and "fixed" list finding titles, "rerated" lists {"title", "from", "to", "reason"}, and "unchanged" counts findings present in both runs at the same severity. Service names: Workers, Pages Functions, Durable Objects, D1, KV, R2, Queues, Workflows, Cron Triggers, Workers AI, AI Gateway, Browser Run, Images, Containers, Hyperdrive, Vectorize, Email Service, Workers Logs, or "Third-party: <provider>". Safeguards such as the Rate Limiting binding are not services. Each finding also states the facts its rating rests on (see "Facts behind each rating" in SKILL.md): "starts" is "itself", "anyone", "account", "credential" or "n/a"; "limit" names what limits how much the path can bill, or "nothing"; "bounded" says whether something caps how fast it can bill (never true for a Critical finding); "monthly_usd" is the monthly dollar figure over the allowance that the rating rests on, or null when the rating does not rest on one. -->
 
 ```json
 {
-  "cost_guard_report": 1,
+  "cost_guard_report": 2,
   "overall_risk": "<Critical|High|Medium|Low|None>",
   "autonomous_runaway_paths": false,
   "services": ["<service>"],
@@ -129,6 +129,10 @@ Any fix for these findings changes exactly the code paths that can generate cost
       "autonomous": false,
       "gated_by": null,
       "severity_if_enabled": null,
+      "starts": "<itself|anyone|account|credential|n/a>",
+      "limit": "<what limits how much it can bill, or \"nothing\">",
+      "bounded": false,
+      "monthly_usd": null,
       "title": "<short title>"
     }
   ],

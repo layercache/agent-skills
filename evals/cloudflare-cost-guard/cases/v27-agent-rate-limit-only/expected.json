@@ -19,6 +19,11 @@
         "High"
       ],
       "autonomous": false,
+      "starts": [
+        "account",
+        "credential"
+      ],
+      "bounded": true,
       "explanation": "Each question costs at most four calls to llama-3.3-70b-instruct-fp8-fast with capped output and history: about 9,600 input and 1,600 output tokens, about $0.0064 at $0.293 and $2.253 per million. Nothing limits a key's spending: KEY_LIMITER allows ten questions a minute per key, and the Rate Limiting binding counts separately in each Cloudflare location. One key, leaked or used flat out from one location, is 432,000 questions a month, about $2,770 over the included Neurons, and each further location adds as much again. That is far above about $100 a month, so High, even though each request is capped. A daily or monthly budget per key, counted in one place before the first model call, removes it (s20).",
       "monthly_usd": 2770
     }

@@ -8,6 +8,8 @@
       "file": "src/scheduler.ts",
       "contains": "await this.ctx.storage.setAlarm(Date.now() + TICK_MS);\n  }",
       "max_severity": "Low",
+      "service": "Durable Objects",
+      "autonomous": true,
       "reason": "The alarm never stops, but its rate has a limit: one object (idFromName of a constant), a fixed 60-second interval on every path including the error path, and at most 10 jobs per tick from a table capped at 50 rows. That is about 43,200 requests and under a million rows written a month, inside the included allowance. Each job's next_run_at is moved forward whether its call succeeds or fails, so a failing target is not retried back-to-back."
     }
   ]

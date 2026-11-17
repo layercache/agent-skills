@@ -8,6 +8,11 @@
       "file": "src/index.ts",
       "contains": "const { results: rooms } = await env.DB.prepare(\"SELECT name FROM rooms WHERE name > ? ORDER BY name LIMIT ?\")",
       "max_severity": "Low",
+      "service": [
+        "D1",
+        "Durable Objects"
+      ],
+      "autonomous": false,
       "reason": "Each call reads at most 50 room names by primary-key range and wakes at most 50 Durable Objects, each for one key read, so each call is capped at a fixed size. The route needs the admin token and is limited to six calls a minute under one shared key, which the Rate Limiting binding counts per location. One leaked token from one location is 259,200 calls a month: about 13M object requests, $1.79 over the included million, with duration inside the allowance because an idle object that can hibernate is not billed. Low; each further location adds as much again.",
       "monthly_usd": 1.79
     }

@@ -19,6 +19,10 @@
         "Critical"
       ],
       "autonomous": true,
+      "starts": [
+        "itself"
+      ],
+      "bounded": false,
       "explanation": "run() ends by creating a new instance with cursor: page.next, with no check that there is a next page and no generation counter. After the last page next is null, which is also the starting cursor, so the export begins again from the first page and never stops: every 30 seconds, forever, one metered CRM API call, one R2 write and the run's Workflow steps. Every POST /exports starts another chain that never ends, so the number of loops grows with requests and nothing limits the cost rate."
     }
   ],

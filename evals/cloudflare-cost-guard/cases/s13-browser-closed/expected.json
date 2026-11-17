@@ -8,6 +8,8 @@
       "file": "src/index.ts",
       "contains": "const browser = await puppeteer.launch(env.BROWSER);",
       "max_severity": "Low",
+      "service": "Browser Run",
+      "autonomous": true,
       "reason": "One browser per run, closed in finally whatever happens, with a 15-second cap per page: at most about 3 minutes a run, four runs a day, about 6 browser hours a month, inside the 10 included. Each screenshot overwrites <page>/latest.png, so the bucket holds 12 objects."
     }
   ]

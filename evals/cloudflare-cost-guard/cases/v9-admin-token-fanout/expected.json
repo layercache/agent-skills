@@ -11,6 +11,10 @@
         "High"
       ],
       "autonomous": false,
+      "starts": [
+        "credential"
+      ],
+      "bounded": false,
       "exposure": [
         "credential"
       ],

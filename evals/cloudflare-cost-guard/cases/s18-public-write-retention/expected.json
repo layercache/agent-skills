@@ -8,12 +8,16 @@
       "file": "src/index.ts",
       "contains": "await env.DB.prepare(\"INSERT INTO visits (slug, created_at) VALUES (?, ?)\").bind(slug, Date.now()).run();",
       "max_severity": "Low",
+      "service": "D1",
+      "autonomous": false,
       "reason": "One cheap write per request, and only for a link that exists: an unknown or malformed slug returns 404 before any write. Visits are deleted after 30 days by an indexed range delete, so the table stops growing. This is the linear cost of being public, which belongs under global safeguards, not in a finding above Low."
     },
     {
       "file": "src/index.ts",
       "contains": "await env.DB.prepare(\"DELETE FROM visits WHERE created_at < ?\").bind(Date.now() - RETENTION_MS).run();",
       "max_severity": "Low",
+      "service": "D1",
+      "autonomous": true,
       "reason": "The cleanup uses the index on created_at and removes only rows that have just passed 30 days, about an hour's worth of visits per run."
     }
   ]

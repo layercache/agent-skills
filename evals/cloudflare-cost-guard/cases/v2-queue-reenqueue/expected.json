@@ -16,6 +16,10 @@
         "Critical"
       ],
       "autonomous": true,
+      "starts": [
+        "itself"
+      ],
+      "bounded": false,
       "explanation": "On any failure the consumer sends the same body back to webhook-deliveries and acks the original. Re-sending creates a new message, so max_retries and any dead letter queue never apply, and there is no attempt counter or delay. One endpoint that always fails (a dead URL submitted to the public POST route) loops forever, billing about three queue operations plus a Worker invocation and an outbound request per cycle."
     }
   ],

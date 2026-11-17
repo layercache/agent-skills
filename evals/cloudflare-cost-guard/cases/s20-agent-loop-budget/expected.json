@@ -8,6 +8,8 @@
       "file": "src/index.ts",
       "contains": "for (let step = 0; step < MAX_STEPS; step++) {",
       "max_severity": "Low",
+      "service": "Workers AI",
+      "autonomous": false,
       "reason": "The loop runs at most four times, each call is capped at 400 output tokens, and the question and every article added to the history are capped, so one question has a fixed maximum cost: about 9,600 input and 1,600 output tokens across the four calls, about $0.0064 at the snapshot's rates for this model ($0.293 and $2.253 per million). Before the first call, one conditional upsert counts the question against a budget of 20 per key per day; D1 keeps that count in one place, so it holds across locations, unlike the per-location rate limit. One key's worst month is 600 questions, about $3.90 of model calls, about $0.60 over the roughly 300,000 Neurons ($3.30) included a month. That is Low. v27 is the same agent with the rate limit alone.",
       "monthly_usd": 0.6
     }

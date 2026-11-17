@@ -8,12 +8,16 @@
       "file": "src/export.ts",
       "contains": "for (let pageNumber = 0; pageNumber < MAX_PAGES; pageNumber++) {",
       "max_severity": "Low",
+      "service": "Workflows",
+      "autonomous": true,
       "reason": "The loop stops when the CRM returns no next cursor and at 200 pages at most, so an instance runs at most 600 steps. Each CRM call retries at most four times with backoff, and not at all on a 4xx other than 429. Nothing creates another instance."
     },
     {
       "file": "src/index.ts",
       "contains": "const instance = await env.EXPORT_WORKFLOW.create({ id: `${accountId}-${day}`, params: { accountId } });",
       "max_severity": "Low",
+      "service": "Workflows",
+      "autonomous": false,
       "reason": "The instance id is the account and the date, so an account can start one export a day; the route needs an API key and is rate limited per account."
     }
   ]

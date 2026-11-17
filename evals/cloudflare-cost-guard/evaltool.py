@@ -9,7 +9,10 @@
   evaltool.py strip DIR             Remove the do-not-deploy notice from a copied case.
 
 A report is the agent's Markdown output. The grader reads the JSON block the
-skill's report template ends with ("cost_guard_report": 1).
+skill's report template ends with ("cost_guard_report": 2). From version 2 on,
+each finding also states the facts its rating rests on (starts, bounded,
+monthly_usd), and the grader checks them; version 1 reports are graded
+without them.
 
 REPORT_DIR holds <case>.md files, or run-<n>/<case>.md when a case was run
 more than once. A <case>.modified file next to a report means the agent
@@ -28,6 +31,29 @@ HERE = Path(__file__).resolve().parent
 CASES = HERE / "cases"
 SEVERITIES = ["None", "Low", "Medium", "High", "Critical"]
 EXPOSURES = ["autonomous", "external", "credential", "n/a"]
+# Who can set a path going, in a version 2 report: "itself" is exactly the autonomous findings.
+STARTS = ["itself", "anyone", "account", "credential", "n/a"]
+# A reported dollar figure for an expected finding passes within this factor of the case's.
+MONTHLY_USD_FACTOR = 3
+# The service names in the report template; a case names services with these.
+KNOWN_SERVICES = {
+    "workers", "pages functions", "durable objects", "d1", "kv", "r2", "queues", "workflows", "cron triggers",
+    "workers ai", "ai gateway", "browser run", "images", "containers", "hyperdrive", "vectorize",
+    "email service", "workers logs", "third-party",
+}
+# Names that reports use for a service the template names differently.
+SERVICE_ALIASES = {
+    "durable object": "durable objects",
+    "browser rendering": "browser run",
+    "email": "email service",
+    "email routing": "email service",
+    "email workers": "email service",
+    "cloudflare images": "images",
+    "image resizing": "images",
+    "worker": "workers",
+    "cron": "cron triggers",
+    "cron trigger": "cron triggers",
+}
 ANSWER_HINT = re.compile(r"\b(vulnerab|counterexample|expected finding|eval)", re.IGNORECASE)
 LINE_WINDOW = 8
 # In a risky case, a finding that matches no expected or allowed location fails
@@ -165,6 +191,19 @@ def check_cases() -> list[str]:
             bad = [s for s in item.get("severity_if_enabled", []) if s not in SEVERITIES[1:]]
             if bad or not isinstance(item.get("gated_by", ""), str):
                 errors.append(f"{name}: gated_by must be a string and severity_if_enabled a list of severities")
+            # The facts a version 2 report must get right for this finding.
+            what = item.get("id", "?")
+            starts = item.get("starts")
+            if not isinstance(starts, list) or not starts or any(s not in STARTS for s in starts):
+                errors.append(f"{name}: {what}: starts must be a non-empty list from {STARTS}")
+            elif ("itself" in starts) != bool(item.get("autonomous")) or (len(starts) > 1 and "itself" in starts):
+                errors.append(f"{name}: {what}: starts is ['itself'] exactly when the finding is autonomous")
+            if not isinstance(item.get("bounded"), bool):
+                errors.append(f"{name}: {what}: bounded must be true or false")
+            elif item["bounded"] and "Critical" in item.get("severity", []):
+                errors.append(f"{name}: {what}: a Critical finding cannot be bounded")
+            elif "monthly_usd" in item and not item["bounded"]:
+                errors.append(f"{name}: {what}: monthly_usd on a path that is not bounded")
         for key in ("may_flag", "must_not_flag"):
             for item in case.get(key, []):
                 for field in ("file", "contains", "max_severity", "reason"):
@@ -172,8 +211,16 @@ def check_cases() -> list[str]:
                         errors.append(f"{name}: {key} entry missing '{field}'")
                 if item.get("max_severity") not in SEVERITIES[1:]:
                     errors.append(f"{name}: {key} entry has an unknown max_severity")
+                # Which path the entry protects, so a finding about another cost nearby is not judged by it.
+                if not service_names(item.get("service")):
+                    errors.append(f"{name}: {key} entry needs 'service' (a name or a list of names)")
+                if "autonomous" in item and not isinstance(item["autonomous"], bool):
+                    errors.append(f"{name}: {key} entry: autonomous must be true or false")
         for key in ("expected_findings", "may_flag", "must_not_flag"):
             for item in case.get(key, []):
+                unknown = sorted(service_names(item.get("service")) - KNOWN_SERVICES - {"any"})
+                if unknown:
+                    errors.append(f"{name}: {key} entry names services the report template does not: {unknown}")
                 for extra in item.get("also", []):
                     if not isinstance(extra, dict) or "contains" not in extra:
                         errors.append(f"{name}: every 'also' entry needs 'contains'")
@@ -270,16 +317,50 @@ def distance(finding: dict, anchor: dict, unlined: bool = False) -> int | None:
     return best
 
 
+def service_names(value) -> set[str]:
+    """Canonical lower-case names for a service or list of services. "Third-party: X" also counts as "third-party"."""
+    names = set()
+    for raw in value if isinstance(value, list) else [value]:
+        name = " ".join(str(raw or "").lower().split())
+        if not name:
+            continue
+        name = SERVICE_ALIASES.get(name, name)
+        names.add(name)
+        if name.startswith("third-party"):
+            names.add("third-party")
+    return names
+
+
+def bills(finding: dict, anchor: dict) -> bool:
+    """True if the finding names a service the anchor's path bills, or the anchor names none."""
+    wanted = service_names(anchor.get("service"))
+    return not wanted or "any" in wanted or bool(wanted & (service_names(finding.get("service")) | service_names(finding.get("services") or [])))
+
+
+def about(finding: dict, anchor: dict) -> bool:
+    """True if the finding is about the anchor's path: the same billed service and, where the case says, the same autonomy.
+
+    A finding near an expected location that names another service is about some other
+    cost. For an expected finding a wrong autonomous flag is a mistake to report, not a
+    different path, so only allowed and protected locations use it to tell paths apart.
+    """
+    if not bills(finding, anchor):
+        return False
+    if anchor["role"] != "expect" and "autonomous" in anchor:
+        return bool(finding.get("autonomous")) == bool(anchor["autonomous"])
+    return True
+
+
 def owns(finding: dict, anchor: dict, expected: list[dict]) -> bool:
-    """True if the finding is near the anchor and no other expected anchor is closer.
+    """True if the finding is near the anchor, about its path, and no other expected anchor it is about is closer.
 
     One finding then cannot stand in for a different expected finding a few lines away.
     """
     gap = distance(finding, anchor)
-    if gap is None:
+    if gap is None or not about(finding, anchor):
         return False
     for other in expected:
-        if other is anchor:
+        if other is anchor or not about(finding, other):
             continue
         other_gap = distance(finding, other)
         if other_gap is not None and other_gap < gap:
@@ -328,6 +409,54 @@ def field_problems(finding: dict, anchor: dict) -> list[str]:
     flipped = anchor.get("severity_if_enabled")
     if flipped and finding.get("severity_if_enabled") not in flipped:
         problems.append(f"severity_if_enabled {finding.get('severity_if_enabled')!r}, expected one of {flipped}")
+    if finding.get("_facts"):
+        # Version 2 reports state the facts behind each rating; the case says which are right.
+        starts = anchor.get("starts")
+        if starts and finding.get("starts") not in starts:
+            problems.append(f"starts {finding.get('starts')!r}, expected one of {starts}")
+        if "bounded" in anchor and finding.get("bounded") is not anchor["bounded"]:
+            problems.append(f"bounded {finding.get('bounded')!r}, expected {anchor['bounded']}")
+        usd = anchor.get("monthly_usd")
+        if usd is not None:
+            got = finding.get("monthly_usd")
+            low, high = usd / MONTHLY_USD_FACTOR, usd * MONTHLY_USD_FACTOR
+            if not is_dollars(got) or not low <= got <= high:
+                problems.append(f"monthly_usd {got!r}, expected about ${usd:g} (${low:.2f} to ${high:.2f})")
+    return problems
+
+
+def is_dollars(value) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and value >= 0
+
+
+def rating_for(monthly_usd: float) -> set[str]:
+    """The ratings a monthly figure supports: its own, and a neighbour's within a quarter of a threshold."""
+    return {fixed_rate_severity(monthly_usd), fixed_rate_severity(monthly_usd * 1.25), fixed_rate_severity(monthly_usd / 1.25)}
+
+
+def fact_problems(finding: dict) -> list[str]:
+    """Where a version 2 finding's facts contradict each other or its rating, whatever the case expects."""
+    problems = []
+    starts, bounded, usd = finding.get("starts"), finding.get("bounded"), finding.get("monthly_usd")
+    if starts not in STARTS:
+        problems.append(f"starts {starts!r} is not one of {STARTS}")
+    elif (starts == "itself") != bool(finding.get("autonomous")):
+        problems.append(f"starts {starts!r} disagrees with autonomous {finding.get('autonomous')!r}")
+    elif (starts == "n/a") != (finding.get("exposure") == "n/a"):
+        problems.append(f"starts {starts!r} disagrees with exposure {finding.get('exposure')!r}")
+    if not isinstance(bounded, bool) and not (bounded is None and starts == "n/a"):
+        problems.append(f"bounded {bounded!r} must be true or false")
+    if bounded is True and finding.get("severity") == "Critical":
+        problems.append("a Critical finding is bounded, but Critical needs a cost rate with no limit")
+    if usd is not None:
+        if not is_dollars(usd):
+            problems.append(f"monthly_usd {usd!r} must be a number of dollars or null")
+        elif bounded is not True:
+            problems.append(f"monthly_usd ${usd:g} on a path that is not bounded")
+        else:
+            basis = finding.get("severity_if_enabled") if finding.get("gated_by") and finding.get("severity_if_enabled") else finding.get("severity")
+            if basis not in rating_for(usd):
+                problems.append(f"monthly_usd ${usd:g} gives {fixed_rate_severity(usd)}, but the finding is rated {basis}")
     return problems
 
 
@@ -352,6 +481,19 @@ def grade_detail(case_dir: Path, report_text: str) -> dict:
         return result
     findings = [f for f in report.get("findings") or [] if isinstance(f, dict)]
     ok = True
+    try:
+        version = int(report.get("cost_guard_report") or 1)
+    except (TypeError, ValueError):
+        version = 1
+    if version >= 2:
+        # From version 2 each finding states the facts behind its rating. They must agree
+        # with each other and with the rating before the case judges whether they are right.
+        findings = [{**f, "_facts": True} for f in findings]
+        for finding in findings:
+            problems = fact_problems(finding)
+            if problems:
+                ok = False
+                notes.append(f"facts of {finding.get('id')}: {problems[0]}")
     all_anchors = anchors(case_dir, case)
     expected = [a for a in all_anchors if a["role"] == "expect"]
     # Each expected finding needs a reported finding of its own. A finding that is equally
@@ -389,7 +531,11 @@ def grade_detail(case_dir: Path, report_text: str) -> dict:
             )
         else:
             unlined = [f for f in findings if distance(f, anchor, unlined=True) is not None]
-            hint = " (a finding names the file but gives no line number)" if unlined else ""
+            elsewhere = [f for f in findings if distance(f, anchor) is not None and not bills(f, anchor)]
+            if elsewhere:
+                hint = f" (a finding there is about {elsewhere[0].get('service')!r}, not {anchor['service']!r})"
+            else:
+                hint = " (a finding names the file but gives no line number)" if unlined else ""
             notes.append(f"missed {anchor['id']} at {anchor['file']}:{anchor['line']}{hint}")
 
     # A finding beside one that was paired is judged as well. It may repeat the problem, but
@@ -413,12 +559,14 @@ def grade_detail(case_dir: Path, report_text: str) -> dict:
         # A finding that sits at least as close to an expected finding belongs to that one,
         # so an allowed or forbidden location a few lines away does not judge it. In the same
         # way, a finding at least as close to an allowed location is judged there, not by a
-        # forbidden one nearby that it cites as part of the same cost.
+        # forbidden one nearby that it cites as part of the same cost. Only findings about the
+        # location's own path (its billed service, and its autonomy where the case says) count.
         owners = expected + (allowed if anchor["role"] == "forbid" else [])
         matches = [
             i for i, f in enumerate(findings)
             if (gap := distance(f, anchor, unlined=True)) is not None
-            and not any((d := distance(f, e)) is not None and d <= gap for e in owners)
+            and about(f, anchor)
+            and not any((d := distance(f, e)) is not None and d <= gap and about(f, e) for e in owners)
         ]
         over = [findings[i] for i in matches if rank(str(findings[i].get("severity"))) > rank(anchor["max_severity"])]
         if anchor["role"] == "allow":
@@ -575,11 +723,23 @@ def scorecard(report_dir: Path) -> str:
 
 # ---------------------------------------------------------------- self-test
 
-def synthetic_report(findings: list[dict], **summary) -> str:
-    """A report whose summary fields agree with its findings, unless overridden."""
+def with_facts(finding: dict) -> dict:
+    """The finding with facts that agree with it, where it states none: who starts it from its autonomy, unbounded, no figure."""
+    return {
+        "starts": "itself" if finding.get("autonomous") else "anyone",
+        "bounded": False,
+        "monthly_usd": None,
+        **finding,
+    }
+
+
+def synthetic_report(findings: list[dict], fill: bool = True, **summary) -> str:
+    """A version 2 report whose summary fields and facts agree with its findings, unless overridden."""
+    if fill:
+        findings = [with_facts(f) for f in findings]
     top = max((rank(str(f.get("severity"))) for f in findings), default=0)
     body = {
-        "cost_guard_report": 1,
+        "cost_guard_report": 2,
         "overall_risk": SEVERITIES[top],
         "autonomous_runaway_paths": any(
             f.get("autonomous") and rank(str(f.get("severity"))) >= rank("High") for f in findings
@@ -602,11 +762,16 @@ def self_test() -> list[str]:
         def passes(findings: list[dict], **summary) -> bool:
             return grade(case_dir, synthetic_report(findings, **summary))[0]
 
+        def notes_for(findings: list[dict]) -> list[str]:
+            return grade(case_dir, synthetic_report(findings))[1]
+
         perfect = [
             {"id": f"CG-{i}", "severity": a["severity"][0], "file": a["file"], "line": a["line"],
              "autonomous": a["autonomous"], "exposure": (a.get("exposure") or ["external"])[0], "title": a["id"],
              "gated_by": f"{a['gated_by']}=false" if a.get("gated_by") else None,
-             "severity_if_enabled": (a.get("severity_if_enabled") or [None])[0]}
+             "severity_if_enabled": (a.get("severity_if_enabled") or [None])[0],
+             "service": a["service"], "services": [a["service"]],
+             "starts": a["starts"][0], "bounded": a["bounded"], "monthly_usd": a.get("monthly_usd")}
             for i, a in enumerate(expected, 1)
         ]
         if not passes(perfect):
@@ -668,6 +833,28 @@ def self_test() -> list[str]:
                 [{**f, "gated_by": None, "severity_if_enabled": None} for f in perfect]
             ):
                 errors.append(f"{name}: report without the gating fields passed")
+            # The facts behind each rating are checked where the case states them.
+            facts_only = ("starts", "bounded", "monthly_usd")
+            if not passes(perfect, fill=False, cost_guard_report=1) or not passes(
+                [{k: v for k, v in f.items() if k not in facts_only} for f in perfect], fill=False, cost_guard_report=1
+            ):
+                errors.append(f"{name}: a version 1 report without facts failed")
+            if passes([{k: v for k, v in f.items() if k not in facts_only} for f in perfect], fill=False):
+                errors.append(f"{name}: a version 2 report without facts passed")
+            for i, f in enumerate(perfect):
+                others = perfect[:i] + perfect[i + 1:]
+                if passes(others + [{**f, "service": "Hyperdrive", "services": ["Hyperdrive"]}]):
+                    errors.append(f"{name}: {f['title']} named with the wrong service passed")
+                wrong_starts = [s for s in ("anyone", "account", "credential") if s not in expected[i]["starts"]]
+                if not f["autonomous"] and wrong_starts and passes(others + [{**f, "starts": wrong_starts[0]}]):
+                    errors.append(f"{name}: {f['title']} with starts {wrong_starts[0]!r} passed")
+                if passes(others + [{**f, "bounded": not f["bounded"], "monthly_usd": None}]):
+                    errors.append(f"{name}: {f['title']} with the wrong bounded passed")
+                if f["monthly_usd"] is not None:
+                    if passes(others + [{**f, "monthly_usd": None}]) or passes(others + [{**f, "monthly_usd": f["monthly_usd"] * 10}]):
+                        errors.append(f"{name}: {f['title']} with a missing or tenfold monthly_usd passed")
+                    if not passes(others + [{**f, "monthly_usd": round(f["monthly_usd"] * 1.1, 2)}]):
+                        errors.append(f"{name}: {f['title']} with monthly_usd 10% off failed")
             if passes(perfect, overall_risk="None"):
                 errors.append(f"{name}: overall_risk that disagrees with the findings passed")
             wrong = not any(f["autonomous"] and rank(f["severity"]) >= rank("High") for f in perfect)
@@ -675,7 +862,8 @@ def self_test() -> list[str]:
                 errors.append(f"{name}: autonomous_runaway_paths that disagrees with the findings passed")
         else:
             anchor = anchors(case_dir, case)[0]
-            wrong = [{"id": "CG-1", "severity": "High", "file": anchor["file"], "line": anchor["line"]}]
+            wrong = [{"id": "CG-1", "severity": "High", "file": anchor["file"], "line": anchor["line"],
+                      "service": sorted(service_names(anchor["service"]))[0], "autonomous": anchor.get("autonomous", False)}]
             if passes(wrong):
                 errors.append(f"{name}: false positive passed a safe case")
             above = SEVERITIES[rank(case["max_overall_severity"]) + 1]
@@ -689,14 +877,43 @@ def self_test() -> list[str]:
             if any(place == (file, line) for e in expected for place in e["places"]):
                 continue
             above = SEVERITIES[min(rank(forbid["max_severity"]) + 1, len(SEVERITIES) - 1)]
-            bad = {"id": "CG-98", "severity": above, "file": file, "line": line, "autonomous": False, "title": "forbidden"}
+            bad = {"id": "CG-98", "severity": above, "file": file, "line": line, "title": "forbidden",
+                   "autonomous": forbid.get("autonomous", False), "service": sorted(service_names(forbid["service"]))[0]}
             if passes(perfect + [bad]):
                 errors.append(f"{name}: a {above} finding at {file}:{line} (must_not_flag) passed")
+            # A finding there about another service is about another cost, so this location does not judge it.
+            if "any" not in service_names(forbid["service"]):
+                elsewhere = {**bad, "service": "Hyperdrive", "services": ["Hyperdrive"]}
+                if any(n.startswith(f"false positive at {forbid['file']}:{forbid['line']}") for n in notes_for(perfect + [elsewhere])):
+                    errors.append(f"{name}: a Hyperdrive finding at {file}:{line} was judged by the must_not_flag there")
+            # Where the case says whether the protected path runs by itself, a finding on the same
+            # service with the other autonomy is about a different path (s15: storage a user adds,
+            # next to the event consumer the case protects).
+            if "autonomous" in forbid:
+                other_path = {**bad, "autonomous": not forbid["autonomous"]}
+                if any(n.startswith(f"false positive at {forbid['file']}:{forbid['line']}") for n in notes_for(perfect + [other_path])):
+                    errors.append(f"{name}: a finding at {file}:{line} with the other autonomy was judged by the must_not_flag there")
         if grade(case_dir, "no json here")[0]:
             errors.append(f"{name}: report without a summary passed")
     for usd, want in ((0, "Low"), (4.99, "Low"), (5, "Medium"), (99.99, "Medium"), (100, "High")):
         if fixed_rate_severity(usd) != want:
             errors.append(f"check: ${usd} a month is rated {fixed_rate_severity(usd)}, not {want}")
+    # Facts that contradict each other or the rating fail, whatever the case expects.
+    base = {"severity": "High", "autonomous": True, "exposure": "autonomous", "starts": "itself", "bounded": True, "monthly_usd": 150}
+    for change, want in (
+        ({}, False),
+        ({"severity": "Critical", "monthly_usd": None}, True),
+        ({"severity": "Medium"}, True),
+        ({"severity": "Medium", "monthly_usd": 90}, False),
+        ({"severity": "Medium", "monthly_usd": 110}, False),
+        ({"starts": "anyone"}, True),
+        ({"bounded": False}, True),
+        ({"bounded": None, "monthly_usd": None}, True),
+        ({"monthly_usd": -1}, True),
+        ({"severity": "Low", "gated_by": "FLAG=false", "severity_if_enabled": "High"}, False),
+    ):
+        if bool(fact_problems({**base, **change})) != want:
+            errors.append(f"facts: {change} {'passed' if want else 'failed'} the consistency check")
     return errors + missing_report_errors()
 
 

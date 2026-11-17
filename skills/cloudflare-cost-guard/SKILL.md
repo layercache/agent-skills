@@ -181,6 +181,13 @@ Show the report in the conversation. If the full report is long (more than about
 
 Every finding needs: severity, confidence, service(s), location(s) (file:line), trigger and exposure (autonomous, externally drivable, credential-gated, or n/a for a missing global safeguard; in the JSON these are `autonomous`, `external`, `credential` and `n/a`), what it is gated by (or "none"), scenario, existing safeguards, cost at a stated rate, and a recommendation. Recommendations name the missing safeguard and where it belongs (for example "cap retries at a fixed count and send exhausted messages to a dead letter queue in `src/consumer.ts:42`"). Do not write replacement code.
 
+**Facts behind each rating.** Each finding's JSON entry also states the facts its severity rests on, so a reader can check the rating without re-deriving it:
+
+- `starts`: who can set the path going. `"itself"` when it keeps running with no further outside input (exactly the findings with `"autonomous": true`, even if a request started the first run); `"anyone"` for a route that needs no sign-in; `"account"` for a route that needs a signed-in account or a per-customer API key; `"credential"` for a route behind a shared secret, such as one admin token; `"n/a"` for a missing global safeguard.
+- `limit`: one line naming what limits how much the path can bill: the rate limit or quota and what it is keyed by (and whether it counts per location), the fixed schedule and the cap per run, the size limit, or `"nothing"`.
+- `bounded`: `true` when something caps how fast the path can bill: a limit on the caller, a fixed schedule doing capped work, or a size limit (see "Growth that a size limit stops"). `false` when nothing does, including when the cost of each run or request grows with data, time or object count and nothing stops that growth, even if how often it runs is limited. A Critical finding is never bounded. `null` only for a missing global safeguard.
+- `monthly_usd`: the dollars a month over the included allowance that the rating rests on: the steady volume of a repeating path, or the worst month of a path a caller drives behind a limit on that caller (at one location when the limit counts per location). Use `null` when the rating does not rest on a monthly figure: the path is not bounded, the service has no documented rate, or the cost follows how fast new items arrive (a cap that is a ceiling, not a rate). When it is a number, it must give the finding's rating by the thresholds above (for a gated finding, its `severity_if_enabled`).
+
 If no material problems are found, say so and list what was reviewed, without claiming the application is safe.
 
 Keep the template's "Before you change anything" section word for word, and finish with the machine-readable summary (the JSON block from the template) so results can be compared between runs. In it, `autonomous_runaway_paths` is true only when at least one finding is autonomous and rated High or Critical, matching "At a glance". Name services with the names in the template's comment so runs compare cleanly.
@@ -194,6 +201,7 @@ Check the draft against the code once more, looking for wrong line numbers and g
 3. For each line under "Reviewed and not flagged", check that it names the bound. "It looks bounded" is not a bound: if you cannot name one, it is a finding or an evidence gap. A rate limit on a caller is named with its worst month.
 4. Redo the arithmetic in each cost line: units per run × runs per month (or per call × calls a month at one location), millions against billions, and the allowance subtracted before the rate is applied.
 5. Check that the summary matches the findings: overall risk is the highest severity reported ("None" with no findings), and `autonomous_runaway_paths` is true exactly when a finding is autonomous and rated High or Critical.
+6. Check each finding's facts against its rating: `starts` is `"itself"` exactly when the finding is autonomous, a Critical finding has `"bounded": false`, and a `monthly_usd` figure gives the finding's rating (under about $5 Low, about $100 or more High, Medium between). If they disagree, one of them is wrong: fix the figure or the rating, not just the field.
 
 ## After the audit
 
